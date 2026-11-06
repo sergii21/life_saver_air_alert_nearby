@@ -1,0 +1,161 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import { evaluate, zonesForLocation, zonesMentioned } from '../src/lib/evaluate';
+import { bearingDeg, destinationPoint, distanceKm, escapePoint } from '../src/lib/geo';
+import { parseChannelHtml } from '../src/lib/telegram';
+import { containsAny, normalize } from '../src/lib/text';
+import type { ChannelMessage } from '../src/types';
+import { VINNYTSIA_ZONES } from '../src/zones/vinnytsia';
+
+const zone = (id: string) => VINNYTSIA_ZONES.find((z) => z.id === id)!;
+const msg = (id: number, text: string, minutesAgo: number, now: number): ChannelMessage => ({
+  channel: 'test',
+  id,
+  text,
+  date: new Date(now - minutesAgo * 60_000).toISOString(),
+});
+
+describe('telegram parser', () => {
+  const html = readFileSync(join(__dirname, 'fixtures/channel.html'), 'utf8');
+  const messages = parseChannelHtml(html, 'test_alerts');
+
+  it('extracts text posts newest first, skipping media-only posts', () => {
+    expect(messages.map((m) => m.id)).toEqual([102, 101]);
+  });
+
+  it('strips html, decodes entities, keeps line breaks', () => {
+    expect(messages[1].text).toBe('🔴 Шахед курсом на Замостя!\nВсім в укриття & тримайтеся');
+    expect(messages[1].date).toBe('2026-11-06T12:00:00+00:00');
+  });
+
+  it('ignores the quoted reply block', () => {
+    expect(messages[0].text).toBe('Відбій по Замостю. Загроза минула !');
+  });
+});
+
+describe('keyword matching', () => {
+  it('prefix keywords match Ukrainian case endings', () => {
+    for (const s of ['Замостя', 'на Замості', 'по Замостю', 'ЗАМОСТЯНСЬКИЙ район']) {
+      expect(containsAny(normalize(s), ['замост*'])).toBe(true);
+    }
+  });
+
+  it('does not match inside other words', () => {
+    expect(containsAny(normalize('перезамостя'), ['замост*'])).toBe(false);
+  });
+
+  it('whole-word keywords do not match longer words', () => {
+    expect(containsAny(normalize('Вінницька область — тривога'), zone('vinnytsia-city').keywords)).toBe(false);
+    expect(containsAny(normalize('Вибухи у Вінниці'), zone('vinnytsia-city').keywords)).toBe(true);
+  });
+
+  it('normalises apostrophes', () => {
+    expect(containsAny(normalize('Слов’янка'), zone('slovianka').keywords)).toBe(true);
+    expect(containsAny(normalize('Словʼянці'), zone('slovianka').keywords)).toBe(true);
+  });
+
+  it('phrases tolerate punctuation between words', () => {
+    expect(containsAny(normalize('Хутір-Шевченка'), zone('khutir-shevchenka').keywords)).toBe(true);
+  });
+
+  it('Pyrohovo does not match Pirogov street', () => {
+    expect(containsAny(normalize('вул. Пирогова'), zone('pyrohovo').keywords)).toBe(false);
+  });
+
+  it('zonesMentioned finds every named district', () => {
+    const ids = zonesMentioned({ channel: 't', id: 1, date: null, text: 'Дрон над Вишенькою, рух на Тяжилів' }).map(
+      (z) => z.id,
+    );
+    expect(ids).toEqual(expect.arrayContaining(['vyshenka', 'tiazhyliv']));
+  });
+});
+
+describe('geo', () => {
+  it('distance Vinnytsia → Kyiv ≈ 200 km', () => {
+    expect(distanceKm({ latitude: 49.2331, longitude: 28.4682 }, { latitude: 50.4501, longitude: 30.5234 })).toBeCloseTo(
+      199,
+      -1,
+    );
+  });
+
+  it('destinationPoint is consistent with distance and bearing', () => {
+    const a = { latitude: 49.23, longitude: 28.47 };
+    const b = destinationPoint(a, 75, 3);
+    expect(distanceKm(a, b)).toBeCloseTo(3, 3);
+    expect(bearingDeg(a, b)).toBeCloseTo(75, 0);
+  });
+
+  it('escapePoint moves away from the danger center', () => {
+    const center = zone('zamostia').center;
+    const user = destinationPoint(center, 90, 0.5);
+    const esc = escapePoint(user, center, 3);
+    expect(distanceKm(center, esc)).toBeCloseTo(3.5, 1);
+  });
+});
+
+describe('evaluate', () => {
+  const now = Date.parse('2026-11-06T12:30:00Z');
+  const inZamostia = zone('zamostia').center;
+  const opts = { now, requireThreatKeyword: false };
+
+  it('locates the user in district + city', () => {
+    const ids = zonesForLocation(inZamostia).map((z) => z.id);
+    expect(ids[0]).toBe('zamostia');
+    expect(ids).toContain('vinnytsia-city');
+  });
+
+  it('DANGER when the user district is named in a fresh message', () => {
+    const s = evaluate([msg(1, 'Шахед курсом на Замостя!', 2, now)], inZamostia, opts);
+    expect(s.level).toBe('danger');
+    expect(s.hits[0].zone.id).toBe('zamostia');
+  });
+
+  it('SAFE when another district is named', () => {
+    const s = evaluate([msg(1, 'Шахед курсом на Тяжилів!', 2, now)], inZamostia, opts);
+    expect(s.level).toBe('safe');
+  });
+
+  it('CAUTION when only the city is named', () => {
+    const s = evaluate([msg(1, 'Вибухи у Вінниці', 2, now)], inZamostia, opts);
+    expect(s.level).toBe('caution');
+  });
+
+  it('all-clear newer than the threat clears the zone', () => {
+    const s = evaluate(
+      [msg(1, 'Шахед курсом на Замостя!', 10, now), msg(2, 'Відбій по Замостю', 1, now)],
+      inZamostia,
+      opts,
+    );
+    expect(s.level).toBe('safe');
+  });
+
+  it('threat newer than an all-clear is active again', () => {
+    const s = evaluate(
+      [msg(1, 'Відбій по Замостю', 10, now), msg(2, 'Знову дрон на Замостя', 1, now)],
+      inZamostia,
+      opts,
+    );
+    expect(s.level).toBe('danger');
+  });
+
+  it('threat expires after TTL', () => {
+    const s = evaluate([msg(1, 'Шахед курсом на Замостя!', 45, now)], inZamostia, { ...opts, alertTtlMinutes: 30 });
+    expect(s.level).toBe('safe');
+  });
+
+  it('respects REQUIRE_THREAT_KEYWORD', () => {
+    const m = [msg(1, 'На Замості відкрили новий сквер', 2, now)];
+    expect(evaluate(m, inZamostia, { now, requireThreatKeyword: true }).level).toBe('safe');
+    expect(evaluate(m, inZamostia, { now, requireThreatKeyword: false }).level).toBe('danger');
+  });
+
+  it('no location → safe', () => {
+    expect(evaluate([msg(1, 'Замостя', 1, now)], null, opts).level).toBe('safe');
+  });
+
+  it('user far away (Kyiv) is never matched', () => {
+    const s = evaluate([msg(1, 'Шахед на Замостя, Вінниця', 1, now)], { latitude: 50.45, longitude: 30.52 }, opts);
+    expect(s.userZones).toHaveLength(0);
+    expect(s.level).toBe('safe');
+  });
+});

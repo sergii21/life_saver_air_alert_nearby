@@ -1,0 +1,82 @@
+{
+  "expo": {
+    "name": "Тривога Поруч",
+    "slug": "alert-nearby",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "alertnearby",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "bundleIdentifier": "com.yourname.alertnearby",
+      "buildNumber": "1",
+      "supportsTablet": false,
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Ваше місцезнаходження потрібне, щоб попередити про небезпеку саме у вашому районі. Воно не залишає телефон. / Your location is used only on this phone to warn you about danger in your district.",
+        "CFBundleAllowMixedLocalizations": true
+      },
+      "entitlements": {
+        "com.apple.developer.usernotifications.time-sensitive": true
+      }
+    },
+    "android": {
+      "package": "com.yourname.alertnearby",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#C5221F",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.VIBRATE"
+      ],
+      "blockedPermissions": [
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Ваше місцезнаходження потрібне, щоб попередити про небезпеку саме у вашому районі. Воно не залишає телефон. / Your location is used only on this phone to warn you about danger in your district.",
+          "locationAlwaysAndWhenInUsePermission": false,
+          "locationAlwaysPermission": false,
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false,
+          "motionUsagePermission": false,
+          "locationFullAccuracyPermission": "Точне місцезнаходження допомагає правильно визначити ваш район. / Precise location helps detect your district correctly."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#C5221F",
+          "defaultChannel": "danger-alerts",
+          "enableRemoteNotifications": false
+        }
+      ],
+      "expo-background-task",
+      "expo-localization"
+    ]
+  }
+}
