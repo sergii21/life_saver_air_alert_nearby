@@ -14,7 +14,7 @@ export const CONFIG = {
    * Requirement: the channel must be public and have the web preview enabled, i.e.
    * https://t.me/s/<username> must open in a desktop browser and show the posts.
    */
-  CHANNELS: ['REPLACE_WITH_CHANNEL_1', 'REPLACE_WITH_CHANNEL_2'] as string[],
+  CHANNELS: ['vinnytsiappo'] as string[],
 
   /** How often the channels are checked while the app is open (seconds). */
   POLL_INTERVAL_SECONDS: 30,

@@ -42,7 +42,7 @@ Everything is in **`src/config.ts`**:
 
 | Setting | What it does |
 |---|---|
-| `CHANNELS` | Telegram usernames to read (public channels only). Alternatively set the env var `EXPO_PUBLIC_TG_CHANNELS=a,b` at build time. |
+| `CHANNELS` | Telegram usernames to read (public channels only). Currently `vinnytsiappo`. Alternatively set the env var `EXPO_PUBLIC_TG_CHANNELS=a,b` at build time. |
 | `POLL_INTERVAL_SECONDS` | Check interval while the app is open (30). |
 | `ALERT_TTL_MINUTES` | How long a threat post stays active (30). |
 | `REQUIRE_THREAT_KEYWORD` | `false`: any post naming your district triggers an alert (safest). `true`: the post must also contain a threat word. |
@@ -57,6 +57,19 @@ The centres and radii in `src/zones/vinnytsia.ts` are **approximate**.
 2. Add any missing spellings to `keywords`. Use `word*` for a prefix and a plain word for an exact match. Use exact forms when a prefix would hit other things: Пирогово uses exact forms so that it doesn't match "вул. Пирогова".
 3. Check each `center` in Google Maps (right-click → coordinates) and set `radiusKm` so the circle covers the district.
 4. Run `npm test`, and add a test case for any tricky spelling.
+
+## Try it in your browser (fastest)
+
+```bash
+npm install
+npm run web
+```
+
+This starts a small local Telegram proxy on port 8787 (browsers can't read t.me directly because of CORS) and the Expo dev server. Open the address it prints, normally http://localhost:8081.
+
+- To use your real location, allow location in the browser.
+- To pretend you're in a district, add coordinates to the URL. For example, http://localhost:8081/?lat=49.233&lng=28.5 puts you in Замостя. You can also use Chrome DevTools → ⋮ → More tools → Sensors → Location.
+- Browser preview only: there are no background checks or notifications, and the vibration may be blocked.
 
 ## Run locally
 

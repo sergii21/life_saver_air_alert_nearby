@@ -1,4 +1,12 @@
+import { Platform } from 'react-native';
 import type { ChannelMessage } from '../types';
+
+/**
+ * Phones read t.me directly. Browsers can't (CORS), so the web preview goes through the
+ * local proxy started by `npm run web` (scripts/web.js).
+ */
+const TG_BASE =
+  Platform.OS === 'web' ? process.env.EXPO_PUBLIC_TG_PROXY || 'http://localhost:8787' : 'https://t.me';
 
 /**
  * Reads PUBLIC Telegram channels through their web preview page https://t.me/s/<channel>.
@@ -65,7 +73,7 @@ export async function fetchChannel(channel: string, timeoutMs = 15000): Promise<
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(`https://t.me/s/${encodeURIComponent(channel)}`, {
+    const res = await fetch(`${TG_BASE}/s/${encodeURIComponent(channel)}`, {
       signal: controller.signal,
       headers: {
         'Cache-Control': 'no-cache',

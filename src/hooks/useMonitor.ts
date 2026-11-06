@@ -11,6 +11,16 @@ import { notifyHit, setupNotifications } from '../lib/notifications';
 import { addAcked, loadAcked, loadCoords, saveCoords } from '../lib/storage';
 import type { Coords, ZoneHit } from '../types';
 
+/** Browser preview only: http://localhost:8081/?lat=49.233&lng=28.5 fakes the location. */
+function webLocationOverride(): Coords | null {
+  if (typeof window === 'undefined' || !window.location?.search) return null;
+  const q = new URLSearchParams(window.location.search);
+  const latitude = Number(q.get('lat'));
+  const longitude = Number(q.get('lng') ?? q.get('lon'));
+  return q.has('lat') && Number.isFinite(latitude) && Number.isFinite(longitude) ? { latitude, longitude } : null;
+}
+const WEB_OVERRIDE = webLocationOverride();
+
 export type LocPermission = 'unknown' | 'granted' | 'denied' | 'blocked';
 
 const ALARM_PATTERN = [0, 800, 400, 800, 400, 800];
@@ -44,6 +54,10 @@ export function useMonitor() {
 
   const startLocation = useCallback(async () => {
     if (watchRef.current) return;
+    if (WEB_OVERRIDE) {
+      updateCoords(WEB_OVERRIDE);
+      return;
+    }
     try {
       const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       updateCoords(pos.coords);
@@ -80,6 +94,11 @@ export function useMonitor() {
         setCoords({ latitude: saved.latitude, longitude: saved.longitude });
       }
       setAcked(await loadAcked());
+      if (WEB_OVERRIDE) {
+        setPermission('granted');
+        updateCoords(WEB_OVERRIDE);
+        return;
+      }
       const p = await Location.getForegroundPermissionsAsync();
       if (p.granted) {
         applyPermission(p);
@@ -93,7 +112,7 @@ export function useMonitor() {
       watchRef.current?.remove();
       watchRef.current = null;
     };
-  }, [applyPermission]);
+  }, [applyPermission, updateCoords]);
 
   const check = useCallback(async () => {
     // If a check is already running (e.g. started before GPS was ready), queue one more run.

@@ -25,7 +25,7 @@ npx eas-cli@latest login
 
 ## 1. Configure the app (5 min)
 
-1. **Telegram channels.** Open `src/config.ts` and set `CHANNELS` to the usernames of your 1–2 public channels (for `https://t.me/my_alerts`, enter `my_alerts`).
+1. **Telegram channels.** Already set to `vinnytsiappo` in `src/config.ts`. To change it, edit `CHANNELS` to the usernames of your 1–2 public channels (for `https://t.me/my_alerts`, enter `my_alerts`).
    Check that `https://t.me/s/my_alerts` opens in a desktop browser and shows the posts. If it doesn't, the channel can't be read.
 2. **App IDs.** In `app.json`, replace `com.yourname.alertnearby` in **both** `ios.bundleIdentifier` and `android.package` with your own ID, for example `com.ivanpetrenko.alertnearby`. You can't change it after the first store upload.
 3. **Privacy policy URL.** In `src/config.ts`, set `PRIVACY_POLICY_URL` to the address from step 2.

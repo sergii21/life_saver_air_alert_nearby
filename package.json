@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
+    "@expo/metro-runtime": "~58.0.17",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "expo": "~58.0.23",
     "expo-background-task": "~58.0.12",
@@ -14,8 +15,10 @@
     "expo-status-bar": "~58.0.4",
     "expo-task-manager": "~58.0.13",
     "react": "19.3.0",
+    "react-dom": "^19.3.0",
     "react-native": "0.88.1",
-    "react-native-safe-area-context": "~5.11.1"
+    "react-native-safe-area-context": "~5.11.1",
+    "react-native-web": "^0.21.4"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
@@ -33,7 +36,8 @@
     "build:android": "eas build --platform android --profile production",
     "build:ios": "eas build --platform ios --profile production",
     "submit:android": "eas submit --platform android --latest",
-    "submit:ios": "eas submit --platform ios --latest"
+    "submit:ios": "eas submit --platform ios --latest",
+    "web": "node scripts/web.js"
   },
   "private": true,
   "jest": {
