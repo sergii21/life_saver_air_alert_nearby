@@ -69,7 +69,8 @@ This starts a small local Telegram proxy on port 8787 (browsers can't read t.me 
 
 - To use your real location, allow location in the browser.
 - To pretend you're in a district, add coordinates to the URL. For example, http://localhost:8081/?lat=49.233&lng=28.5 puts you in Замостя. You can also use Chrome DevTools → ⋮ → More tools → Sensors → Location.
-- Browser preview only: there are no background checks or notifications, and the vibration may be blocked.
+- **Sound alerts in the browser:** click **"🔊 Увімкнути звук тривоги і сповіщення"** once; browsers only allow sound after a click. Allow notifications when asked. From then on, a threat in your district plays a repeating siren until you press "Я в безпеці", and shows a desktop notification.
+- For browser alerts to work, keep the tab open (it can be in the background) and keep the computer awake. A hidden tab is checked about once a minute instead of every 30 s.
 
 ## Run locally
 

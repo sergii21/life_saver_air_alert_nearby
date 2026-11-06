@@ -31,7 +31,18 @@ function Home() {
         <Text style={styles.tagline}>{t('tagline')}</Text>
 
         {channels.length === 0 && <Text style={styles.warn}>{t('channelsNotConfigured')}</Text>}
-        {!m.notifGranted && <Text style={styles.warn}>{t('notifDenied')}</Text>}
+        {m.isWeb ? (
+          m.webSound ? (
+            <Text style={styles.ok}>{t('webSoundOn')}</Text>
+          ) : (
+            <View style={styles.webBox}>
+              <Text style={styles.webHint}>{t('webNeedsClick')}</Text>
+              <Button title={t('webEnableSound')} onPress={m.enableWebSound} color={colors.danger} />
+            </View>
+          )
+        ) : (
+          !m.notifGranted && <Text style={styles.warn}>{t('notifDenied')}</Text>
+        )}
         {(m.result?.errors.length ?? 0) > 0 && (
           <Text style={styles.warn}>
             {t('fetchErrors')}: {m.result?.errors.join('; ')}
@@ -98,6 +109,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
+  ok: {
+    backgroundColor: colors.safeBg,
+    color: colors.safe,
+    padding: 10,
+    borderRadius: 10,
+    marginBottom: 10,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  webBox: { backgroundColor: colors.dangerBg, padding: 12, borderRadius: 12, marginBottom: 12 },
+  webHint: { fontSize: 13, color: colors.danger, fontWeight: '600' },
   footer: { marginTop: 18 },
   note: { fontSize: 12, color: colors.muted, marginTop: 12, lineHeight: 17 },
   link: { fontSize: 13, color: colors.primary, marginTop: 12, textDecorationLine: 'underline' },

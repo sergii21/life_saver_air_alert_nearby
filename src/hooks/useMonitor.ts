@@ -1,13 +1,15 @@
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Vibration } from 'react-native';
+import { AppState, Platform, Vibration } from 'react-native';
 import { CONFIG, configuredChannels } from '../config';
 import { t } from '../i18n';
 import { registerBackgroundCheck } from '../lib/background';
 import { hitKey, zonesForLocation } from '../lib/evaluate';
 import { runCheck, type CheckResult } from '../lib/monitor';
-import { notifyHit, setupNotifications } from '../lib/notifications';
+import { hitTexts, notifyHit, setupNotifications } from '../lib/notifications';
+import { messageUrl } from '../lib/telegram';
+import { enableWebAlerts, startWebSiren, stopWebSiren, webNotify } from '../lib/webAlarm';
 import { addAcked, loadAcked, loadCoords, saveCoords } from '../lib/storage';
 import type { Coords, ZoneHit } from '../types';
 
@@ -25,7 +27,16 @@ export type LocPermission = 'unknown' | 'granted' | 'denied' | 'blocked';
 
 const ALARM_PATTERN = [0, 800, 400, 800, 400, 800];
 
-function alarm() {
+const IS_WEB = Platform.OS === 'web';
+
+function alarm(hit: ZoneHit, isTest = false) {
+  if (IS_WEB) {
+    // Browser preview: siren sound (repeats until "I'm safe") + desktop notification.
+    startWebSiren();
+    const { title, body } = hitTexts(hit, isTest);
+    webNotify(title, body, isTest ? undefined : messageUrl(hit.message));
+    return;
+  }
   Vibration.vibrate(ALARM_PATTERN);
   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
 }
@@ -38,7 +49,9 @@ export function useMonitor() {
   const [notifGranted, setNotifGranted] = useState(true);
   const [acked, setAcked] = useState<Set<string>>(new Set());
   const [testHit, setTestHit] = useState<ZoneHit | null>(null);
-  const [active, setActive] = useState(AppState.currentState === 'active');
+  // In a browser, keep checking while the tab is hidden (browsers then throttle timers to ~1/min).
+  const [active, setActive] = useState(IS_WEB || AppState.currentState === 'active');
+  const [webSound, setWebSound] = useState(false);
 
   const coordsRef = useRef<Coords | null>(null);
   const checkingRef = useRef(false);
@@ -106,7 +119,7 @@ export function useMonitor() {
       } else setPermission(p.canAskAgain ? 'unknown' : 'blocked');
       registerBackgroundCheck();
     })();
-    const sub = AppState.addEventListener('change', (s) => setActive(s === 'active'));
+    const sub = AppState.addEventListener('change', (s) => setActive(IS_WEB || s === 'active'));
     return () => {
       sub.remove();
       watchRef.current?.remove();
@@ -128,7 +141,7 @@ export function useMonitor() {
         try {
           const r = await runCheck(coordsRef.current, { notify: false });
           setResult(r);
-          if (r.newHits.length > 0) alarm();
+          if (r.newHits.length > 0) alarm(r.newHits[0]);
         } catch (e) {
           setResult((prev) => (prev ? { ...prev, errors: [String(e)] } : prev));
         }
@@ -153,7 +166,11 @@ export function useMonitor() {
   const overlayHit: ZoneHit | null =
     testHit ?? result?.state.hits.find((h) => !acked.has(hitKey(h))) ?? null;
 
+  const overlayRef = useRef<ZoneHit | null>(null);
+  overlayRef.current = overlayHit;
+
   const acknowledge = useCallback(async () => {
+    stopWebSiren();
     if (testHit) {
       setTestHit(null);
       return;
@@ -178,12 +195,23 @@ export function useMonitor() {
       },
     };
     setTestHit(hit);
-    alarm();
-    notifyHit(hit, true).catch(() => {});
+    alarm(hit, true);
+    if (!IS_WEB) notifyHit(hit, true).catch(() => {});
     return null;
   }, [userZones]);
 
+  const enableWebSound = useCallback(async () => {
+    const r = await enableWebAlerts();
+    setWebSound(r.sound);
+    setNotifGranted(r.notifications);
+    // A threat that arrived before sound was enabled: sound it now.
+    if (overlayRef.current) alarm(overlayRef.current, overlayRef.current.message.id === 0);
+  }, []);
+
   return {
+    isWeb: IS_WEB,
+    webSound,
+    enableWebSound,
     permission,
     requestLocation,
     coords,

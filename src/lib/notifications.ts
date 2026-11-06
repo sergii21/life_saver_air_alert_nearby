@@ -34,13 +34,21 @@ export async function setupNotifications(): Promise<boolean> {
   return req.granted;
 }
 
-export async function notifyHit(hit: ZoneHit, isTest = false): Promise<void> {
+export function hitTexts(hit: ZoneHit, isTest = false): { title: string; body: string } {
   const danger = hit.zone.kind === 'district';
   const zone = zoneName(hit.zone);
+  return {
+    title: (isTest ? 'TEST · ' : '') + t(danger ? 'notifTitleDanger' : 'notifTitleCaution', { zone }),
+    body: t(danger ? 'notifBodyDanger' : 'notifBodyCaution') + '\n\n' + hit.message.text.slice(0, 200),
+  };
+}
+
+export async function notifyHit(hit: ZoneHit, isTest = false): Promise<void> {
+  const { title, body } = hitTexts(hit, isTest);
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: (isTest ? 'TEST · ' : '') + t(danger ? 'notifTitleDanger' : 'notifTitleCaution', { zone }),
-      body: t(danger ? 'notifBodyDanger' : 'notifBodyCaution') + '\n\n' + hit.message.text.slice(0, 200),
+      title,
+      body,
       sound: 'default',
       priority: Notifications.AndroidNotificationPriority.MAX,
       interruptionLevel: 'timeSensitive',
