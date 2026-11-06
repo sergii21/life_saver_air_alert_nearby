@@ -11,6 +11,7 @@ export interface EvaluateOptions {
   zoneBufferKm?: number;
   requireThreatKeyword?: boolean;
   allClearKeywords?: string[];
+  regionKeywords?: string[];
   threatKeywords?: string[];
 }
 
@@ -52,6 +53,7 @@ export function evaluate(messages: ChannelMessage[], coords: Coords | null, opts
   const requireThreat = opts.requireThreatKeyword ?? CONFIG.REQUIRE_THREAT_KEYWORD;
   const allClear = opts.allClearKeywords ?? CONFIG.ALL_CLEAR_KEYWORDS;
   const threat = opts.threatKeywords ?? CONFIG.THREAT_KEYWORDS;
+  const region = opts.regionKeywords ?? CONFIG.REGION_KEYWORDS;
 
   if (!coords) return { level: 'safe', hits: [], userZones: [] };
   const userZones = zonesForLocation(coords, zones, opts.zoneBufferKm ?? CONFIG.ZONE_BUFFER_KM);
@@ -63,10 +65,18 @@ export function evaluate(messages: ChannelMessage[], coords: Coords | null, opts
     })
     .sort((a, b) => ts(b) - ts(a));
 
+  // Newest region-wide all-clear ("Чисто на Вінниччині", or "Відбій" naming no zone).
+  const regionClear = recent.find((m) => {
+    const text = normalize(m.text);
+    return containsAny(text, allClear) && (containsAny(text, region) || !zones.some((z) => containsAny(text, z.keywords)));
+  });
+  const regionClearAt = regionClear ? ts(regionClear) : -Infinity;
+
   const hits: ZoneHit[] = [];
   for (const zone of userZones) {
     const latest = recent.find((m) => containsAny(normalize(m.text), zone.keywords));
     if (!latest) continue;
+    if (ts(latest) <= regionClearAt) continue;
     const text = normalize(latest.text);
     if (containsAny(text, allClear)) continue;
     if (now - ts(latest) > ttlMs) continue;

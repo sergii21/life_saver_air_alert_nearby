@@ -23,7 +23,7 @@ Phone GPS ──▶ which zones am I in? (Замостя, Вінниця …) �
 ```
 
 - **No server, no Telegram account, no API keys.** The app reads the channel's public web preview `t.me/s/<channel>`. That page shows the latest ~20 posts.
-- **Zones** are circles (centre + radius) with keyword lists. For example, Замостя has the keyword `замост*`, which matches Замостя, Замості and Замостю. They live in `src/zones/vinnytsia.ts`.
+- **Zones** are circles (centre + radius) with keyword lists. For example, Замостя has the keyword `замост*`, which matches Замостя, Замості and Замостю. They live in `src/zones/vinnytsia.ts`: Vinnytsia city districts, nearby villages, and the main oblast towns (Ладижин, Гайсин, Немирів and others), because @vinnytsiappo covers the whole oblast.
 - Alert levels:
   - 🔴 **DANGER**: your *district* is named. The app shows a full-screen red alert, vibrates, and sends a notification. The alert screen has these buttons:
     - *Route away* (~3 km walking route pointing away from the district)
@@ -32,6 +32,8 @@ Phone GPS ──▶ which zones am I in? (Замостя, Вінниця …) �
     - *Open the post in Telegram*
   - 🟠 **CAUTION**: only your *city* is named ("Вибухи у Вінниці"). Oblast-wide posts ("Вінницька область") are ignored on purpose because they are too frequent.
   - 🟢 **SAFE**: nothing relevant, or the newest post about your district is an all-clear ("відбій", "загроза минула").
+- Channel signatures (a line repeated in most posts, e.g. "💪 Телеграм канал ППО Вінниця") are removed before matching.
+- An oblast-wide all-clear ("📡 Чисто на Вінниччині", or "відбій" naming no zone) clears every zone.
 - A threat expires after `ALERT_TTL_MINUTES` (30 by default) unless a newer post mentions the district again.
 - **Background.** The OS wakes the app roughly every 15 minutes or more (best effort). It uses the last known location and sends a local notification. The fastest warnings come while the app is open.
 - Location **never leaves the phone**. The app asks only for "while using" location permission.

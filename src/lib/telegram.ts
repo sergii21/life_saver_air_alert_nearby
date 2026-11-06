@@ -64,9 +64,36 @@ export function parseChannelHtml(html: string, channel: string): ChannelMessage[
   }
   // Deduplicate (same id can appear twice in odd markup) and sort newest first.
   const seen = new Set<number>();
-  return out
-    .filter((msg) => (seen.has(msg.id) ? false : (seen.add(msg.id), true)))
-    .sort((a, b) => b.id - a.id);
+  return stripRepeatedLines(
+    out.filter((msg) => (seen.has(msg.id) ? false : (seen.add(msg.id), true))).sort((a, b) => b.id - a.id),
+  );
+}
+
+/**
+ * Removes channel signatures/footers, e.g. "💪 Телеграм канал ППО Вінниця" at the end of
+ * every post — otherwise the city name in the signature would match every single post.
+ * A line is treated as a signature if it appears in at least half of the posts (min 3).
+ */
+export function stripRepeatedLines(messages: ChannelMessage[]): ChannelMessage[] {
+  const threshold = Math.max(3, Math.ceil(messages.length / 2));
+  const counts = new Map<string, number>();
+  for (const m of messages) {
+    for (const line of new Set(m.text.split('\n').map((l) => l.trim()).filter(Boolean))) {
+      counts.set(line, (counts.get(line) ?? 0) + 1);
+    }
+  }
+  const repeated = new Set([...counts].filter(([, n]) => n >= threshold).map(([line]) => line));
+  if (repeated.size === 0) return messages;
+  return messages
+    .map((m) => ({
+      ...m,
+      text: m.text
+        .split('\n')
+        .filter((l) => !repeated.has(l.trim()))
+        .join('\n')
+        .trim(),
+    }))
+    .filter((m) => m.text.length > 0);
 }
 
 export async function fetchChannel(channel: string, timeoutMs = 15000): Promise<ChannelMessage[]> {

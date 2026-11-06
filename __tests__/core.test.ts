@@ -2,7 +2,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { evaluate, zonesForLocation, zonesMentioned } from '../src/lib/evaluate';
 import { bearingDeg, destinationPoint, distanceKm, escapePoint } from '../src/lib/geo';
-import { parseChannelHtml } from '../src/lib/telegram';
+import { parseChannelHtml, stripRepeatedLines } from '../src/lib/telegram';
 import { containsAny, normalize } from '../src/lib/text';
 import type { ChannelMessage } from '../src/types';
 import { VINNYTSIA_ZONES } from '../src/zones/vinnytsia';
@@ -157,5 +157,54 @@ describe('evaluate', () => {
     const s = evaluate([msg(1, 'Шахед на Замостя, Вінниця', 1, now)], { latitude: 50.45, longitude: 30.52 }, opts);
     expect(s.userZones).toHaveLength(0);
     expect(s.level).toBe('safe');
+  });
+});
+
+describe('live channel page (t.me/s/vinnytsiappo, saved 2026-11-06)', () => {
+  const html = readFileSync(join(__dirname, 'fixtures/vinnytsiappo-live.html'), 'utf8');
+  const messages = parseChannelHtml(html, 'vinnytsiappo');
+  const byId = (id: number) => messages.find((m) => m.id === id)!;
+
+  it('parses all 20 posts with dates', () => {
+    expect(messages).toHaveLength(20);
+    expect(messages.every((m) => m.date && m.text.length > 0)).toBe(true);
+  });
+
+  it('strips the channel signature so it does not match "Вінниця" in every post', () => {
+    expect(messages.some((m) => m.text.includes('Телеграм канал ППО Вінниця'))).toBe(false);
+    expect(zonesMentioned(byId(2947)).map((z) => z.id)).toEqual(['nemyriv']);
+  });
+
+  it('city alert names the districts', () => {
+    expect(zonesMentioned(byId(2932)).map((z) => z.id).sort()).toEqual(
+      ['ahronomichne', 'akademichnyi', 'luka-meleshkivska', 'vinnytsia-city'].sort(),
+    );
+  });
+
+  it('town alert "❗️ЛАДИЖИН, в укриття" → DANGER for a user in Ladyzhyn', () => {
+    const now = Date.parse('2026-11-06T14:13:30Z'); // just after post #2938
+    const seen = messages.filter((m) => Date.parse(m.date!) <= now); // what the app had at that moment
+    const s = evaluate(seen, zone('ladyzhyn').center, { now });
+    expect(s.level).toBe('danger');
+    expect(s.hits[0].message.id).toBe(2938);
+  });
+
+  it('"📡 Чисто на Вінниччині" clears everything after it', () => {
+    const now = Date.parse('2026-11-06T14:37:00Z'); // after #2949
+    expect(evaluate(messages, zone('ladyzhyn').center, { now }).level).toBe('safe');
+    expect(evaluate(messages, zone('nemyriv').center, { now }).level).toBe('safe');
+  });
+
+  it('Vinnytsia city user is not alarmed by posts about other towns', () => {
+    const now = Date.parse('2026-11-06T14:33:00Z');
+    expect(evaluate(messages, zone('zamostia').center, { now }).level).toBe('safe');
+  });
+});
+
+describe('signature stripping', () => {
+  it('keeps unique lines, removes a footer repeated in most posts', () => {
+    const footer = '💪 Мій канал Вінниця';
+    const m = [1, 2, 3, 4].map((id) => ({ channel: 'c', id, date: null, text: `post ${id}\n${footer}` }));
+    expect(stripRepeatedLines(m).map((x) => x.text)).toEqual(['post 1', 'post 2', 'post 3', 'post 4']);
   });
 });

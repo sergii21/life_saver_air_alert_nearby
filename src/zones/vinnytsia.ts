@@ -100,6 +100,93 @@ export const VINNYTSIA_ZONES: Zone[] = [
     center: { latitude: 49.27, longitude: 28.37 }, radiusKm: 1.5,
     keywords: ['якушин*'],
   },
+  {
+    id: 'luka-meleshkivska', name: 'Лука-Мелешківська', nameEn: 'Luka-Meleshkivska', kind: 'district',
+    center: { latitude: 49.272, longitude: 28.392 }, radiusKm: 1.5,
+    keywords: ['лука м*', 'лука-мелешк*', 'луки-мелешк*', 'луці-мелешк*'],
+  },
+  // ── Oblast towns — the channel covers the whole oblast ("❗️ЛАДИЖИН, в укриття"). ──
+  // Whole town = one zone (match → DANGER). Approximate centers, radius ~ town size.
+  {
+    id: 'ladyzhyn', name: 'Ладижин', nameEn: 'Ladyzhyn', kind: 'district',
+    center: { latitude: 48.684, longitude: 29.236 }, radiusKm: 3,
+    keywords: ['ладижин*'],
+  },
+  {
+    id: 'haisyn', name: 'Гайсин', nameEn: 'Haisyn', kind: 'district',
+    center: { latitude: 48.811, longitude: 29.389 }, radiusKm: 3.5,
+    keywords: ['гайсин*'],
+  },
+  {
+    id: 'nemyriv', name: 'Немирів', nameEn: 'Nemyriv', kind: 'district',
+    center: { latitude: 48.971, longitude: 28.838 }, radiusKm: 3,
+    keywords: ['немирів', 'немиров*'],
+  },
+  {
+    id: 'illintsi', name: 'Іллінці', nameEn: 'Illintsi', kind: 'district',
+    center: { latitude: 49.105, longitude: 29.218 }, radiusKm: 3,
+    keywords: ['іллінц*', 'іллінець'],
+  },
+  {
+    id: 'voronovytsia', name: 'Вороновиця', nameEn: 'Voronovytsia', kind: 'district',
+    center: { latitude: 49.108, longitude: 28.686 }, radiusKm: 2.5,
+    keywords: ['вороновиц*'],
+  },
+  {
+    id: 'bratslav', name: 'Брацлав', nameEn: 'Bratslav', kind: 'district',
+    center: { latitude: 48.824, longitude: 28.942 }, radiusKm: 2.5,
+    keywords: ['брацлав*'],
+  },
+  {
+    id: 'zhmerynka', name: 'Жмеринка', nameEn: 'Zhmerynka', kind: 'district',
+    center: { latitude: 49.039, longitude: 28.108 }, radiusKm: 3.5,
+    keywords: ['жмеринк*', 'жмеринц*'],
+  },
+  {
+    id: 'khmilnyk', name: 'Хмільник', nameEn: 'Khmilnyk', kind: 'district',
+    center: { latitude: 49.557, longitude: 27.957 }, radiusKm: 3.5,
+    keywords: ['хмільник*'],
+  },
+  {
+    id: 'koziatyn', name: 'Козятин', nameEn: 'Koziatyn', kind: 'district',
+    center: { latitude: 49.716, longitude: 28.833 }, radiusKm: 3.5,
+    keywords: ['козятин*'],
+  },
+  {
+    id: 'kalynivka', name: 'Калинівка', nameEn: 'Kalynivka', kind: 'district',
+    center: { latitude: 49.448, longitude: 28.523 }, radiusKm: 3,
+    keywords: ['калинівк*', 'калинівц*'],
+  },
+  {
+    id: 'tulchyn', name: 'Тульчин', nameEn: 'Tulchyn', kind: 'district',
+    center: { latitude: 48.675, longitude: 28.849 }, radiusKm: 3,
+    keywords: ['тульчин*'],
+  },
+  {
+    id: 'mohyliv-podilskyi', name: 'Могилів-Подільський', nameEn: 'Mohyliv-Podilskyi', kind: 'district',
+    center: { latitude: 48.446, longitude: 27.79 }, radiusKm: 4,
+    keywords: ['могилів*', 'могилев*'],
+  },
+  {
+    id: 'bar', name: 'Бар', nameEn: 'Bar', kind: 'district',
+    center: { latitude: 49.075, longitude: 27.68 }, radiusKm: 3,
+    keywords: ['бар', 'бару', 'бара', 'барі'],
+  },
+  {
+    id: 'bershad', name: 'Бершадь', nameEn: 'Bershad', kind: 'district',
+    center: { latitude: 48.368, longitude: 29.516 }, radiusKm: 3,
+    keywords: ['бершад*'],
+  },
+  {
+    id: 'lypovets', name: 'Липовець', nameEn: 'Lypovets', kind: 'district',
+    center: { latitude: 49.215, longitude: 29.056 }, radiusKm: 2.5,
+    keywords: ['липовець', 'липовц*'],
+  },
+  {
+    id: 'pohrebyshche', name: 'Погребище', nameEn: 'Pohrebyshche', kind: 'district',
+    center: { latitude: 49.487, longitude: 29.265 }, radiusKm: 2.5,
+    keywords: ['погребищ*'],
+  },
   // ── Whole city (match → CAUTION, "be ready / go to shelter") ──
   {
     id: 'vinnytsia-city', name: 'Вінниця', nameEn: 'Vinnytsia', kind: 'area',
