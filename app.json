@@ -13,7 +13,7 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "bundleIdentifier": "com.yourname.alertnearby",
+      "bundleIdentifier": "ua.alertnearby.app",
       "buildNumber": "1",
       "supportsTablet": false,
       "config": {
@@ -28,7 +28,7 @@
       }
     },
     "android": {
-      "package": "com.yourname.alertnearby",
+      "package": "ua.alertnearby.app",
       "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#C5221F",

@@ -27,7 +27,7 @@ npx eas-cli@latest login
 
 1. **Telegram channels.** Already set to `vinnytsiappo` in `src/config.ts`. To change it, edit `CHANNELS` to the usernames of your 1–2 public channels (for `https://t.me/my_alerts`, enter `my_alerts`).
    Check that `https://t.me/s/my_alerts` opens in a desktop browser and shows the posts. If it doesn't, the channel can't be read.
-2. **App IDs.** In `app.json`, replace `com.yourname.alertnearby` in **both** `ios.bundleIdentifier` and `android.package` with your own ID, for example `com.ivanpetrenko.alertnearby`. You can't change it after the first store upload.
+2. **App IDs.** Already set to `ua.alertnearby.app` in `app.json` (both `ios.bundleIdentifier` and `android.package`). Don't change it after the first store upload.
 3. **Privacy policy URL.** In `src/config.ts`, set `PRIVACY_POLICY_URL` to the address from step 2.
 4. **Districts.** Check the zone centres and keywords in `src/zones/vinnytsia.ts` against real posts from your channels (see `README.md`, section "Tuning zones").
 5. Link the project to Expo (this creates the project and writes its ID into `app.json`):
@@ -134,7 +134,7 @@ Tip: you can set the channels without editing code by adding an EAS environment 
 ## Checklist
 
 - [ ] `CHANNELS` set in `src/config.ts`, and `https://t.me/s/<channel>` opens
-- [ ] Bundle ID / package name replaced in `app.json`
+- [x] Bundle ID / package name set in `app.json` (`ua.alertnearby.app`)
 - [ ] Privacy policy hosted, with its URL in `src/config.ts` and both stores
 - [ ] Preview APK tested on a phone (real alert + test alert)
 - [ ] Play: internal → closed (12 testers / 14 days) → production
