@@ -15,12 +15,42 @@ const isBrowser = () => typeof window !== 'undefined' && typeof document !== 'un
 
 export const webAlertsEnabled = () => ctx !== null && ctx.state === 'running';
 
-/** Call from a click/tap handler. Unlocks sound and asks for notification permission. */
-export async function enableWebAlerts(): Promise<{ sound: boolean; notifications: boolean }> {
-  if (!isBrowser()) return { sound: false, notifications: false };
+function getCtx(): AudioCtx | null {
+  if (ctx || !isBrowser()) return ctx;
   const Ctor: typeof AudioContext | undefined =
     window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  if (Ctor && !ctx) ctx = new Ctor();
+  if (Ctor) ctx = new Ctor();
+  return ctx;
+}
+
+const unlockListeners = new Set<() => void>();
+/** Called when sound becomes available (after the first click anywhere on the page). */
+export function onAudioUnlocked(cb: () => void): () => void {
+  unlockListeners.add(cb);
+  return () => unlockListeners.delete(cb);
+}
+
+function unlockAudio() {
+  const c = getCtx();
+  if (!c) return;
+  const done = () => {
+    if (c.state === 'running') unlockListeners.forEach((cb) => cb());
+  };
+  if (c.state === 'running') done();
+  else c.resume().then(done, () => {});
+}
+
+// Browsers allow sound only after a user gesture: unlock on the FIRST click/tap/key anywhere.
+if (isBrowser()) {
+  for (const ev of ['pointerdown', 'touchstart', 'keydown']) {
+    window.addEventListener(ev, unlockAudio, { capture: true, passive: true });
+  }
+}
+
+/** Call from a click/tap handler. Unlocks sound and asks for notification permission. */
+export async function enableWebAlerts(opts: { beep?: boolean } = {}): Promise<{ sound: boolean; notifications: boolean }> {
+  if (!isBrowser()) return { sound: false, notifications: false };
+  unlockAudio();
   await ctx?.resume().catch(() => {});
   let notifications = false;
   if ('Notification' in window) {
@@ -29,7 +59,7 @@ export async function enableWebAlerts(): Promise<{ sound: boolean; notifications
       (Notification.permission !== 'denied' && (await Notification.requestPermission()) === 'granted');
   }
   // Short confirmation beep so the user knows the sound works.
-  beep(880, 0.15);
+  if (opts.beep !== false) beep(880, 0.15);
   return { sound: webAlertsEnabled(), notifications };
 }
 
@@ -67,9 +97,10 @@ function sweep() {
 
 /** Siren that repeats until stopWebSiren() is called (or maxSeconds pass). */
 export function startWebSiren(maxSeconds = 60) {
-  if (!ctx) return;
+  const c = getCtx();
+  if (!c) return;
   stopWebSiren();
-  ctx.resume().catch(() => {});
+  c.resume().catch(() => {});
   sweep();
   sirenTimer = setInterval(sweep, 1250);
   sirenStop = setTimeout(stopWebSiren, maxSeconds * 1000);

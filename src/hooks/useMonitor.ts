@@ -9,7 +9,7 @@ import { hitKey, zonesForLocation } from '../lib/evaluate';
 import { runCheck, type CheckResult } from '../lib/monitor';
 import { hitTexts, notifyHit, setupNotifications } from '../lib/notifications';
 import { messageUrl } from '../lib/telegram';
-import { enableWebAlerts, startWebSiren, stopWebSiren, webNotify } from '../lib/webAlarm';
+import { enableWebAlerts, onAudioUnlocked, startWebSiren, stopWebSiren, webAlertsEnabled, webNotify } from '../lib/webAlarm';
 import { addAcked, loadAcked, loadCoords, saveCoords } from '../lib/storage';
 import type { Coords, ZoneHit } from '../types';
 
@@ -51,7 +51,8 @@ export function useMonitor() {
   const [testHit, setTestHit] = useState<ZoneHit | null>(null);
   // In a browser, keep checking while the tab is hidden (browsers then throttle timers to ~1/min).
   const [active, setActive] = useState(IS_WEB || AppState.currentState === 'active');
-  const [webSound, setWebSound] = useState(false);
+  const [webSound, setWebSound] = useState(() => IS_WEB && webAlertsEnabled());
+  useEffect(() => (IS_WEB ? onAudioUnlocked(() => setWebSound(true)) : undefined), []);
 
   const coordsRef = useRef<Coords | null>(null);
   const checkingRef = useRef(false);
@@ -195,8 +196,19 @@ export function useMonitor() {
       },
     };
     setTestHit(hit);
+    if (IS_WEB) {
+      // This click unlocks sound: start the siren now, then ask for notification permission.
+      startWebSiren();
+      enableWebAlerts({ beep: false }).then((r) => {
+        setWebSound(r.sound);
+        setNotifGranted(r.notifications);
+        const { title, body } = hitTexts(hit, true);
+        webNotify(title, body);
+      });
+      return null;
+    }
     alarm(hit, true);
-    if (!IS_WEB) notifyHit(hit, true).catch(() => {});
+    notifyHit(hit, true).catch(() => {});
     return null;
   }, [userZones]);
 

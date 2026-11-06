@@ -14,11 +14,13 @@ interface Props {
   coords: Coords | null;
   isTest: boolean;
   onClose: () => void;
+  /** Browser preview: sound is still blocked — show a button that unlocks it. */
+  onEnableSound?: () => void;
 }
 
 const CITY = CONFIG.ZONES.find((z) => z.kind === 'area')?.center;
 
-export function AlertOverlay({ hit, coords, isTest, onClose }: Props) {
+export function AlertOverlay({ hit, coords, isTest, onClose, onEnableSound }: Props) {
   if (!hit) return null;
   const danger = hit.zone.kind === 'district';
   const bg = danger ? colors.danger : colors.caution;
@@ -30,6 +32,9 @@ export function AlertOverlay({ hit, coords, isTest, onClose }: Props) {
       <SafeAreaView style={[styles.wrap, { backgroundColor: bg }]}>
         <ScrollView contentContainerStyle={styles.content}>
           {isTest && <Text style={styles.test}>TEST</Text>}
+          {onEnableSound && (
+            <Button title={t('webEnableSound')} color={colors.white} textColor={bg} onPress={onEnableSound} />
+          )}
           <Text style={styles.icon}>{danger ? '🚨' : '⚠️'}</Text>
           <Text style={styles.title}>{danger ? t('leaveNow') : t('cautionTitle')}</Text>
           <Text style={styles.zone}>{zone}</Text>

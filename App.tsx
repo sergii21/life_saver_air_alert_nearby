@@ -79,7 +79,13 @@ function Home() {
         </View>
       </ScrollView>
 
-      <AlertOverlay hit={m.overlayHit} coords={m.coords} isTest={m.isTest} onClose={m.acknowledge} />
+      <AlertOverlay
+        hit={m.overlayHit}
+        coords={m.coords}
+        isTest={m.isTest}
+        onClose={m.acknowledge}
+        onEnableSound={m.isWeb && !m.webSound ? m.enableWebSound : undefined}
+      />
     </>
   );
 }
