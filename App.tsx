@@ -32,14 +32,28 @@ function Home() {
 
         {channels.length === 0 && <Text style={styles.warn}>{t('channelsNotConfigured')}</Text>}
         {m.isWeb ? (
-          m.webSound ? (
-            <Text style={styles.ok}>{t('webSoundOn')}</Text>
-          ) : (
-            <View style={styles.webBox}>
-              <Text style={styles.webHint}>{t('webNeedsClick')}</Text>
+          <View style={[styles.webBox, m.webSound && styles.webBoxOn]}>
+            <Text style={[styles.webHint, m.webSound && { color: colors.safe }]}>
+              {m.webSound ? t('webSoundOn') : t('webNeedsClick')}
+            </Text>
+            {m.webSound ? (
+              <Button title={t('webTestSound')} onPress={m.testWebSound} color={colors.safe} />
+            ) : (
               <Button title={t('webEnableSound')} onPress={m.enableWebSound} color={colors.danger} />
-            </View>
-          )
+            )}
+            <Text style={styles.webNotif}>
+              {m.webNotif === 'granted'
+                ? t('webNotifOn')
+                : m.webNotif === 'denied'
+                  ? t('webNotifBlocked')
+                  : m.webNotif === 'unsupported'
+                    ? t('webNotifUnsupported')
+                    : t('webNotifOff')}
+            </Text>
+            {m.webNotif === 'default' && (
+              <Button title={t('webEnableNotif')} onPress={m.enableWebSound} outline color={colors.primary} />
+            )}
+          </View>
         ) : (
           !m.notifGranted && <Text style={styles.warn}>{t('notifDenied')}</Text>
         )}
@@ -73,6 +87,7 @@ function Home() {
           />
           <Text style={styles.note}>{t('backgroundNote')}</Text>
           <Text style={styles.note}>{t('disclaimer')}</Text>
+          {!!process.env.EXPO_PUBLIC_BUILD && <Text style={styles.note}>build {process.env.EXPO_PUBLIC_BUILD}</Text>}
           <Text style={styles.link} onPress={() => Linking.openURL(CONFIG.PRIVACY_POLICY_URL)}>
             {t('privacy')}
           </Text>
@@ -125,6 +140,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   webBox: { backgroundColor: colors.dangerBg, padding: 12, borderRadius: 12, marginBottom: 12 },
+  webBoxOn: { backgroundColor: colors.safeBg },
+  webNotif: { fontSize: 13, color: colors.muted, marginTop: 10 },
   webHint: { fontSize: 13, color: colors.danger, fontWeight: '600' },
   footer: { marginTop: 18 },
   note: { fontSize: 12, color: colors.muted, marginTop: 12, lineHeight: 17 },

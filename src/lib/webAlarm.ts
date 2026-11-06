@@ -113,6 +113,12 @@ export function stopWebSiren() {
   sirenStop = null;
 }
 
+/** 'granted' | 'denied' | 'default' | 'unsupported' */
+export function webNotificationPermission(): string {
+  if (!isBrowser() || !('Notification' in window)) return 'unsupported';
+  return Notification.permission;
+}
+
 export function webNotify(title: string, body: string, url?: string) {
   if (!isBrowser() || !('Notification' in window) || Notification.permission !== 'granted') return;
   try {

@@ -50,7 +50,16 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`[tg-proxy] Telegram proxy on http://localhost:${PORT}/s/<channel>`);
   if (process.argv.includes('--proxy-only')) return;
-  const expo = spawn('npx', ['expo', 'start', '--web', ...process.argv.slice(2)], { stdio: 'inherit', shell: true });
+  // Show the git commit in the app footer, so it's easy to tell which version is running.
+  let build = 'dev';
+  try {
+    build = require('child_process').execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  } catch {}
+  const expo = spawn('npx', ['expo', 'start', '--web', '--clear', ...process.argv.slice(2)], {
+    stdio: 'inherit',
+    shell: true,
+    env: { ...process.env, EXPO_PUBLIC_BUILD: process.env.EXPO_PUBLIC_BUILD || build },
+  });
   expo.on('exit', (code) => {
     server.close();
     process.exit(code ?? 0);

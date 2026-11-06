@@ -9,7 +9,15 @@ import { hitKey, zonesForLocation } from '../lib/evaluate';
 import { runCheck, type CheckResult } from '../lib/monitor';
 import { hitTexts, notifyHit, setupNotifications } from '../lib/notifications';
 import { messageUrl } from '../lib/telegram';
-import { enableWebAlerts, onAudioUnlocked, startWebSiren, stopWebSiren, webAlertsEnabled, webNotify } from '../lib/webAlarm';
+import {
+  enableWebAlerts,
+  onAudioUnlocked,
+  startWebSiren,
+  stopWebSiren,
+  webAlertsEnabled,
+  webNotificationPermission,
+  webNotify,
+} from '../lib/webAlarm';
 import { addAcked, loadAcked, loadCoords, saveCoords } from '../lib/storage';
 import type { Coords, ZoneHit } from '../types';
 
@@ -52,6 +60,7 @@ export function useMonitor() {
   // In a browser, keep checking while the tab is hidden (browsers then throttle timers to ~1/min).
   const [active, setActive] = useState(IS_WEB || AppState.currentState === 'active');
   const [webSound, setWebSound] = useState(() => IS_WEB && webAlertsEnabled());
+  const [webNotif, setWebNotif] = useState(() => (IS_WEB ? webNotificationPermission() : 'unsupported'));
   useEffect(() => (IS_WEB ? onAudioUnlocked(() => setWebSound(true)) : undefined), []);
 
   const coordsRef = useRef<Coords | null>(null);
@@ -202,6 +211,7 @@ export function useMonitor() {
       enableWebAlerts({ beep: false }).then((r) => {
         setWebSound(r.sound);
         setNotifGranted(r.notifications);
+        setWebNotif(webNotificationPermission());
         const { title, body } = hitTexts(hit, true);
         webNotify(title, body);
       });
@@ -216,14 +226,23 @@ export function useMonitor() {
     const r = await enableWebAlerts();
     setWebSound(r.sound);
     setNotifGranted(r.notifications);
+    setWebNotif(webNotificationPermission());
     // A threat that arrived before sound was enabled: sound it now.
     if (overlayRef.current) alarm(overlayRef.current, overlayRef.current.message.id === 0);
+  }, []);
+
+  /** 2-second siren so the user can check the speakers / volume. */
+  const testWebSound = useCallback(() => {
+    startWebSiren(2);
+    setWebSound(webAlertsEnabled());
   }, []);
 
   return {
     isWeb: IS_WEB,
     webSound,
+    webNotif,
     enableWebSound,
+    testWebSound,
     permission,
     requestLocation,
     coords,
