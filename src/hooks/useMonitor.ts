@@ -7,7 +7,7 @@ import { t } from '../i18n';
 import { registerBackgroundCheck } from '../lib/background';
 import { hitKey, zonesForLocation } from '../lib/evaluate';
 import { runCheck, type CheckResult } from '../lib/monitor';
-import { startNativeSiren, stopNativeSiren } from '../lib/nativeSiren';
+import { startKeepAlive, startNativeSiren, stopKeepAlive, stopNativeSiren } from '../lib/nativeSiren';
 import { hitTexts, notifyHit, setupNotifications } from '../lib/notifications';
 import { messageUrl } from '../lib/telegram';
 import {
@@ -37,6 +37,8 @@ export type LocPermission = 'unknown' | 'granted' | 'denied' | 'blocked';
 const ALARM_PATTERN = [0, 800, 400, 800, 400, 800];
 
 const IS_WEB = Platform.OS === 'web';
+/** iPhone: the app keeps running (and checking) in the background — see CONFIG.BACKGROUND_KEEP_ALIVE. */
+const KEEP_ALIVE = Platform.OS === 'ios' && CONFIG.BACKGROUND_KEEP_ALIVE;
 
 function alarm(hit: ZoneHit, isTest = false) {
   if (IS_WEB) {
@@ -151,7 +153,9 @@ export function useMonitor() {
       do {
         pendingRef.current = false;
         try {
-          const r = await runCheck(coordsRef.current, { notify: false });
+          // Off screen (keep-alive): also post a notification; the siren supplies the sound.
+          const offScreen = !IS_WEB && AppState.currentState !== 'active';
+          const r = await runCheck(coordsRef.current, { notify: offScreen, notifySound: false });
           setResult(r);
           if (r.newHits.length > 0) alarm(r.newHits[0]);
         } catch (e) {
@@ -164,10 +168,15 @@ export function useMonitor() {
     }
   }, []);
 
-  // Foreground polling (paused while the app is in background).
+  // Polling. Paused while the app is in the background, unless keep-alive holds it awake.
   const hasCoords = coords !== null;
   useEffect(() => {
-    if (!active || permission !== 'granted') return;
+    if (!KEEP_ALIVE || permission !== 'granted') return;
+    startKeepAlive();
+    return stopKeepAlive;
+  }, [permission]);
+  useEffect(() => {
+    if ((!active && !KEEP_ALIVE) || permission !== 'granted') return;
     check();
     const id = setInterval(check, CONFIG.POLL_INTERVAL_SECONDS * 1000);
     return () => clearInterval(id);

@@ -25,6 +25,15 @@ export const CONFIG = {
    */
   BACKGROUND_INTERVAL_MINUTES: 15,
 
+  /**
+   * iPhone only: keep checking the channels while the app is in the background or the
+   * phone is locked, by playing an inaudible sound loop (iOS suspends the app otherwise).
+   * This lets the siren start on a locked, silenced phone. It costs battery and shows a
+   * "now playing" entry on the lock screen. Apple rejects this in App Store review —
+   * set to false for a store build.
+   */
+  BACKGROUND_KEEP_ALIVE: true,
+
   /** A threat message stays "active" for this many minutes unless an all-clear arrives. */
   ALERT_TTL_MINUTES: 30,
 

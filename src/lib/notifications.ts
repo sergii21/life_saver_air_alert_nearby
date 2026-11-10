@@ -45,14 +45,15 @@ export function hitTexts(hit: ZoneHit, isTest = false): { title: string; body: s
   };
 }
 
-export async function notifyHit(hit: ZoneHit, isTest = false): Promise<void> {
+/** `withSound: false` when the in-app siren is already sounding (avoids two sirens at once). */
+export async function notifyHit(hit: ZoneHit, isTest = false, withSound = true): Promise<void> {
   const { title, body } = hitTexts(hit, isTest);
   await Notifications.scheduleNotificationAsync({
     content: {
       title,
       body,
       // iOS: bundled 27 s siren (see app.json). Android uses the channel's sound.
-      sound: Platform.OS === 'ios' ? ALERT_SOUND : 'default',
+      sound: withSound ? (Platform.OS === 'ios' ? ALERT_SOUND : 'default') : false,
       priority: Notifications.AndroidNotificationPriority.MAX,
       interruptionLevel: 'timeSensitive',
       vibrate: [0, 800, 400, 800, 400, 800],

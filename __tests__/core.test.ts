@@ -208,3 +208,71 @@ describe('signature stripping', () => {
     expect(stripRepeatedLines(m).map((x) => x.text)).toEqual(['post 1', 'post 2', 'post 3', 'post 4']);
   });
 });
+
+describe('Vinnytsia location table (micro-districts + nearby villages)', () => {
+  const now = Date.parse('2026-11-10T12:00:00Z');
+  const opts = { now };
+  const urozhaiMarket = { latitude: 49.2257, longitude: 28.4483 }; // ринок "Урожай"
+  const mentioned = (text: string) => zonesMentioned({ channel: 't', id: 1, date: null, text }).map((z) => z.id);
+
+  it('zone ids are unique and every zone has keywords', () => {
+    expect(new Set(VINNYTSIA_ZONES.map((z) => z.id)).size).toBe(VINNYTSIA_ZONES.length);
+    expect(VINNYTSIA_ZONES.every((z) => z.keywords.length > 0 && z.radiusKm > 0)).toBe(true);
+  });
+
+  it('a user at the Urozhai market is located in Урожай first', () => {
+    expect(zonesForLocation(urozhaiMarket)[0].id).toBe('urozhai');
+  });
+
+  it('DANGER when the post names the user micro-district (Урожай)', () => {
+    const s = evaluate([msg(1, 'Урожай / Центр в укриття!', 1, now)], urozhaiMarket, opts);
+    expect(s.level).toBe('danger');
+    expect(s.hits[0].zone.id).toBe('urozhai');
+  });
+
+  it('SAFE at Урожай when the post names districts on the other side of the city', () => {
+    const s = evaluate([msg(1, 'Тяжилів / ГПЗ / Київська , укриття', 1, now)], urozhaiMarket, opts);
+    expect(s.level).toBe('safe');
+  });
+
+  it('city + districts post: DANGER inside a named district, CAUTION elsewhere in the city', () => {
+    const post = [msg(1, '❗️ВІННИЦЯ , укриття\nАгрономічне / Академічне / Поділля / Вишенька', 1, now)];
+    expect(evaluate(post, zone('vyshenka').center, opts).level).toBe('danger');
+    expect(evaluate(post, zone('tiazhyliv').center, opts).level).toBe('caution');
+  });
+
+  it('nearby village: Агрономічне', () => {
+    const inVillage = zone('ahronomichne').center;
+    expect(zonesForLocation(inVillage)[0].id).toBe('ahronomichne');
+    expect(evaluate([msg(1, 'Агрономічне/ електромережа в укриття', 1, now)], inVillage, opts).level).toBe('danger');
+    // Outside the city circle: a city-only post does not alarm the village.
+    expect(evaluate([msg(1, 'Сабарів / Поділля !', 1, now)], inVillage, opts).level).toBe('safe');
+  });
+
+  it("understands the channel's own spellings", () => {
+    expect(mentioned('Гпз / тяжилів / стрижавка / київська укриття')).toEqual(
+      expect.arrayContaining(['hpz', 'tiazhyliv', 'stryzhavka', 'kyivska']),
+    );
+    expect(mentioned('Лука Мелешківська / Бучми / Немирівське шосе / Старе місто / Хутори / Масложир , в УКРИТТЯ!')).toEqual(
+      expect.arrayContaining(['luka-meleshkivska', 'mali-khutory', 'nemyrivske-shose', 'stare-misto', 'maslozhyr']),
+    );
+    expect(mentioned('Київська / Пʼятничани / Зарваниці , в укриття !')).toEqual(
+      expect.arrayContaining(['kyivska', 'piatnychany', 'zarvantsi']),
+    );
+    expect(mentioned('Лука / Старе місто / Електромережа укриття')).toEqual(
+      expect.arrayContaining(['luka-meleshkivska', 'stare-misto', 'elektromerezha']),
+    );
+    expect(mentioned('Реактив на Замостя / Вокзал')).toEqual(expect.arrayContaining(['zamostia', 'vokzal']));
+  });
+
+  it('a prefix works on any word of a phrase', () => {
+    expect(containsAny(normalize('по Немирівському шосе'), ['немирівськ* шосе'])).toBe(true);
+    expect(containsAny(normalize('Немирівський район'), ['немирівськ* шосе'])).toBe(false);
+    expect(containsAny(normalize('у Вінницькій області'), ['вінницьк* област*'])).toBe(true);
+  });
+
+  it('Урожай (district) and Урожайне (village) are not confused', () => {
+    expect(mentioned('Шахед на Урожайне')).toEqual(['urozhaine']);
+    expect(mentioned('Урожай в укриття')).toEqual(['urozhai']);
+  });
+});
