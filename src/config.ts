@@ -69,7 +69,7 @@ export const CONFIG = {
   EMERGENCY_PHONE: '112',
 
   /** Link shown in Settings (host docs/privacy-policy.html, e.g. on GitHub Pages). */
-  PRIVACY_POLICY_URL: 'https://REPLACE_WITH_YOUR_GITHUB_USERNAME.github.io/life_saver_air_alert_nearby/privacy-policy.html',
+  PRIVACY_POLICY_URL: 'https://sergii21.github.io/life_saver_air_alert_nearby/privacy-policy.html',
 };
 
 /**

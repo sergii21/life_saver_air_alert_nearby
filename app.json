@@ -72,11 +72,26 @@
         {
           "color": "#C5221F",
           "defaultChannel": "danger-alerts",
-          "enableRemoteNotifications": false
+          "enableRemoteNotifications": false,
+          "sounds": ["./assets/siren_alert.wav"]
         }
       ],
       "expo-background-task",
-      "expo-localization"
-    ]
+      "expo-localization",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": true
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "8d35fa3f-4c16-494e-8ced-2ad1cae6fc8e"
+      }
+    },
+    "owner": "serjvnet"
   }
 }

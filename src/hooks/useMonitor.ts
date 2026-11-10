@@ -7,6 +7,7 @@ import { t } from '../i18n';
 import { registerBackgroundCheck } from '../lib/background';
 import { hitKey, zonesForLocation } from '../lib/evaluate';
 import { runCheck, type CheckResult } from '../lib/monitor';
+import { startNativeSiren, stopNativeSiren } from '../lib/nativeSiren';
 import { hitTexts, notifyHit, setupNotifications } from '../lib/notifications';
 import { messageUrl } from '../lib/telegram';
 import {
@@ -45,6 +46,7 @@ function alarm(hit: ZoneHit, isTest = false) {
     webNotify(title, body, isTest ? undefined : messageUrl(hit.message));
     return;
   }
+  startNativeSiren();
   Vibration.vibrate(ALARM_PATTERN);
   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
 }
@@ -181,6 +183,7 @@ export function useMonitor() {
 
   const acknowledge = useCallback(async () => {
     stopWebSiren();
+    if (!IS_WEB) stopNativeSiren();
     if (testHit) {
       setTestHit(null);
       return;

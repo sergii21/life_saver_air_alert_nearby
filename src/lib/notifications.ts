@@ -1,16 +1,18 @@
 import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { t, zoneName } from '../i18n';
 import type { ZoneHit } from '../types';
 import { messageUrl } from './telegram';
 
 export const ALERT_CHANNEL_ID = 'danger-alerts';
+const ALERT_SOUND = 'siren_alert.wav';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
     shouldShowList: true,
-    shouldPlaySound: true,
+    // App on screen: the in-app siren (nativeSiren.ts) is already sounding.
+    shouldPlaySound: AppState.currentState !== 'active',
     shouldSetBadge: false,
     priority: Notifications.AndroidNotificationPriority.MAX,
   }),
@@ -49,7 +51,8 @@ export async function notifyHit(hit: ZoneHit, isTest = false): Promise<void> {
     content: {
       title,
       body,
-      sound: 'default',
+      // iOS: bundled 27 s siren (see app.json). Android uses the channel's sound.
+      sound: Platform.OS === 'ios' ? ALERT_SOUND : 'default',
       priority: Notifications.AndroidNotificationPriority.MAX,
       interruptionLevel: 'timeSensitive',
       vibrate: [0, 800, 400, 800, 400, 800],
