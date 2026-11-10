@@ -40,8 +40,15 @@ export const CONFIG = {
   /** Messages older than this are ignored entirely (minutes). */
   MAX_MESSAGE_AGE_MINUTES: 120,
 
-  /** The user counts as "in" a zone if within (zone radius + this buffer), km. */
-  ZONE_BUFFER_KM: 0.3,
+  /**
+   * The user counts as "in" a zone if within (zone radius + this distance), km. A wider
+   * value also catches the neighbouring districts when you are between two of them.
+   * This is the default; the user can change it in the app's Settings.
+   */
+  ZONE_BUFFER_KM: 1,
+
+  /** Choices offered in Settings for the distance above, km. */
+  NEARBY_KM_OPTIONS: [0.3, 1, 2, 3] as number[],
 
   /** "Route away" button builds a walking route to a point this far from the danger zone, km. */
   ESCAPE_DISTANCE_KM: 3,

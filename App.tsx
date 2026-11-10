@@ -1,10 +1,12 @@
 import { StatusBar } from 'expo-status-bar';
+import { useState } from 'react';
 import { Alert, Linking, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { AlertOverlay } from './src/components/AlertOverlay';
 import { Button } from './src/components/Button';
 import { MessageList } from './src/components/MessageList';
 import { PermissionScreen } from './src/components/PermissionScreen';
+import { SettingsScreen } from './src/components/SettingsScreen';
 import { StatusCard } from './src/components/StatusCard';
 import { CONFIG, configuredChannels } from './src/config';
 import { useMonitor } from './src/hooks/useMonitor';
@@ -13,6 +15,7 @@ import { colors } from './src/theme';
 
 function Home() {
   const m = useMonitor();
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   if (m.permission !== 'granted') {
     return <PermissionScreen permission={m.permission} onAllow={m.requestLocation} />;
@@ -72,6 +75,7 @@ function Home() {
         />
 
         <Button title={m.checking ? t('checking') : t('checkNow')} onPress={m.check} disabled={m.checking} />
+        <Button title={t('settingsOpen')} onPress={() => setSettingsOpen(true)} outline />
 
         <MessageList messages={m.result?.messages ?? []} userZones={m.userZones} />
 
@@ -93,6 +97,15 @@ function Home() {
           </Text>
         </View>
       </ScrollView>
+
+      <SettingsScreen
+        visible={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        coords={m.coords}
+        userZones={m.userZones}
+        settings={m.settings}
+        onChange={m.updateSettings}
+      />
 
       <AlertOverlay
         hit={m.overlayHit}

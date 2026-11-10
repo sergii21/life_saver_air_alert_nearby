@@ -66,6 +66,21 @@ const uk = {
   notifBodyCaution: 'Загроза у вашому місті. Будьте готові пройти в укриття.',
   minutesAgo: '{n} хв тому',
   justNow: 'щойно',
+  settings: 'Налаштування',
+  settingsOpen: '🗺 Карта районів і налаштування',
+  settingsDone: 'Готово',
+  mapTitle: 'Карта районів',
+  mapHint: 'Червоні — райони, за якими ви отримуєте тривогу зараз. Натисніть на назву району, щоб додати його або прибрати.',
+  nearbyTitle: 'Сусідні райони',
+  nearbyHint: 'Попереджати також про райони, що ближче ніж:',
+  km: '{n} км',
+  myZonesTitle: 'Ваші райони зараз',
+  myZonesNone: 'Жодного. Збільште відстань вище або додайте район на карті.',
+  pinnedTag: 'додано вручну',
+  nearTag: 'поруч',
+  listTitle: 'Усі райони (від найближчого)',
+  add: 'Додати',
+  remove: 'Прибрати',
 };
 
 type Strings = typeof uk;
@@ -136,6 +151,21 @@ const en: Strings = {
   notifBodyCaution: 'Threat in your city. Be ready to go to a shelter.',
   minutesAgo: '{n} min ago',
   justNow: 'just now',
+  settings: 'Settings',
+  settingsOpen: '🗺 District map & settings',
+  settingsDone: 'Done',
+  mapTitle: 'District map',
+  mapHint: 'Red = districts you are alerted for right now. Tap a district name to add or remove it.',
+  nearbyTitle: 'Neighbouring districts',
+  nearbyHint: 'Also alert me for districts closer than:',
+  km: '{n} km',
+  myZonesTitle: 'Your districts now',
+  myZonesNone: 'None. Increase the distance above or add a district on the map.',
+  pinnedTag: 'added by hand',
+  nearTag: 'nearby',
+  listTitle: 'All districts (nearest first)',
+  add: 'Add',
+  remove: 'Remove',
 };
 
 function detectLang(): 'uk' | 'en' {

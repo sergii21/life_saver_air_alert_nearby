@@ -2,7 +2,7 @@ import { configuredChannels } from '../config';
 import type { AlertState, ChannelMessage, Coords, ZoneHit } from '../types';
 import { evaluate, hitKey } from './evaluate';
 import { notifyHit } from './notifications';
-import { addNotified, loadNotified } from './storage';
+import { addNotified, loadNotified, loadSettings } from './storage';
 import { fetchAll } from './telegram';
 
 export interface CheckResult {
@@ -20,7 +20,8 @@ export interface CheckResult {
  */
 export async function runCheck(coords: Coords | null, opts: { notify: boolean; notifySound?: boolean }): Promise<CheckResult> {
   const { messages, errors } = await fetchAll(configuredChannels());
-  const state = evaluate(messages, coords);
+  const settings = await loadSettings();
+  const state = evaluate(messages, coords, { zoneBufferKm: settings.nearbyKm, pinnedZoneIds: settings.pinned });
 
   const notified = await loadNotified();
   const newHits = state.hits.filter((h) => !notified.has(hitKey(h)));

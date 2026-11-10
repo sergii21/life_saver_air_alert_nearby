@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { evaluate, zonesForLocation, zonesMentioned } from '../src/lib/evaluate';
+import { evaluate, userZonesFor, zonesForLocation, zonesMentioned } from '../src/lib/evaluate';
 import { bearingDeg, destinationPoint, distanceKm, escapePoint } from '../src/lib/geo';
 import { parseChannelHtml, stripRepeatedLines } from '../src/lib/telegram';
 import { containsAny, normalize } from '../src/lib/text';
@@ -274,5 +274,36 @@ describe('Vinnytsia location table (micro-districts + nearby villages)', () => {
   it('Урожай (district) and Урожайне (village) are not confused', () => {
     expect(mentioned('Шахед на Урожайне')).toEqual(['urozhaine']);
     expect(mentioned('Урожай в укриття')).toEqual(['urozhai']);
+  });
+});
+
+describe('between districts + settings', () => {
+  const now = Date.parse('2026-11-10T12:00:00Z');
+  // A point between Березина and Агрономічне (west edge of the city).
+  const between = { latitude: 49.2135, longitude: 28.3585 };
+  const post = [msg(1, 'Агрономічне в укриття!', 1, now)];
+
+  it('default distance counts both neighbouring districts', () => {
+    expect(zonesForLocation(between).map((z) => z.id)).toEqual(expect.arrayContaining(['berezyna', 'ahronomichne']));
+    expect(evaluate(post, between, { now }).level).toBe('danger');
+  });
+
+  it('a wider "nearby" distance adds more districts, a narrower one fewer', () => {
+    const narrow = userZonesFor(between, VINNYTSIA_ZONES, 0.3).length;
+    const wide = userZonesFor(between, VINNYTSIA_ZONES, 3).length;
+    expect(wide).toBeGreaterThan(narrow);
+  });
+
+  it('a pinned district alerts even when the user is far from it', () => {
+    const inZamostia = zone('zamostia').center;
+    expect(evaluate(post, inZamostia, { now }).level).toBe('safe');
+    const s = evaluate(post, inZamostia, { now, pinnedZoneIds: ['ahronomichne'] });
+    expect(s.level).toBe('danger');
+    expect(s.userZones.map((z) => z.id)).toContain('ahronomichne');
+  });
+
+  it('pinned districts work without a GPS position', () => {
+    expect(evaluate(post, null, { now, pinnedZoneIds: ['ahronomichne'] }).level).toBe('danger');
+    expect(evaluate(post, null, { now }).level).toBe('safe');
   });
 });

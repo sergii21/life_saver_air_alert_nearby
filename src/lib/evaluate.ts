@@ -9,6 +9,8 @@ export interface EvaluateOptions {
   alertTtlMinutes?: number;
   maxMessageAgeMinutes?: number;
   zoneBufferKm?: number;
+  /** Zones the user added by hand in Settings: always treated as the user's zones. */
+  pinnedZoneIds?: string[];
   requireThreatKeyword?: boolean;
   allClearKeywords?: string[];
   regionKeywords?: string[];
@@ -24,6 +26,21 @@ export function zonesForLocation(coords: Coords, zones = CONFIG.ZONES, bufferKm 
     .filter(({ z, d }) => d <= z.radiusKm + bufferKm)
     .sort((a, b) => a.d - b.d)
     .map(({ z }) => z);
+}
+
+/**
+ * All zones that count as "the user's": the ones around the current position (closest
+ * first) followed by the ones pinned by hand in Settings.
+ */
+export function userZonesFor(
+  coords: Coords | null,
+  zones = CONFIG.ZONES,
+  bufferKm = CONFIG.ZONE_BUFFER_KM,
+  pinnedIds: string[] = [],
+): Zone[] {
+  const near = coords ? zonesForLocation(coords, zones, bufferKm) : [];
+  const seen = new Set(near.map((z) => z.id));
+  return [...near, ...zones.filter((z) => pinnedIds.includes(z.id) && !seen.has(z.id))];
 }
 
 /** Zones whose keywords appear in the message. */
@@ -55,8 +72,8 @@ export function evaluate(messages: ChannelMessage[], coords: Coords | null, opts
   const threat = opts.threatKeywords ?? CONFIG.THREAT_KEYWORDS;
   const region = opts.regionKeywords ?? CONFIG.REGION_KEYWORDS;
 
-  if (!coords) return { level: 'safe', hits: [], userZones: [] };
-  const userZones = zonesForLocation(coords, zones, opts.zoneBufferKm ?? CONFIG.ZONE_BUFFER_KM);
+  const userZones = userZonesFor(coords, zones, opts.zoneBufferKm ?? CONFIG.ZONE_BUFFER_KM, opts.pinnedZoneIds);
+  if (userZones.length === 0) return { level: 'safe', hits: [], userZones };
 
   const recent = messages
     .filter((m) => {

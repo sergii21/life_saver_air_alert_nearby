@@ -5,7 +5,7 @@ import { AppState, Platform, Vibration } from 'react-native';
 import { CONFIG, configuredChannels } from '../config';
 import { t } from '../i18n';
 import { registerBackgroundCheck } from '../lib/background';
-import { hitKey, zonesForLocation } from '../lib/evaluate';
+import { hitKey, userZonesFor } from '../lib/evaluate';
 import { runCheck, type CheckResult } from '../lib/monitor';
 import { startKeepAlive, startNativeSiren, stopKeepAlive, stopNativeSiren } from '../lib/nativeSiren';
 import { hitTexts, notifyHit, setupNotifications } from '../lib/notifications';
@@ -19,7 +19,16 @@ import {
   webNotificationPermission,
   webNotify,
 } from '../lib/webAlarm';
-import { addAcked, loadAcked, loadCoords, saveCoords } from '../lib/storage';
+import {
+  addAcked,
+  defaultSettings,
+  loadAcked,
+  loadCoords,
+  loadSettings,
+  saveCoords,
+  saveSettings,
+  type Settings,
+} from '../lib/storage';
 import type { Coords, ZoneHit } from '../types';
 
 /** Browser preview only: http://localhost:8081/?lat=49.233&lng=28.5 fakes the location. */
@@ -61,6 +70,7 @@ export function useMonitor() {
   const [notifGranted, setNotifGranted] = useState(true);
   const [acked, setAcked] = useState<Set<string>>(new Set());
   const [testHit, setTestHit] = useState<ZoneHit | null>(null);
+  const [settings, setSettings] = useState<Settings>(defaultSettings);
   // In a browser, keep checking while the tab is hidden (browsers then throttle timers to ~1/min).
   const [active, setActive] = useState(IS_WEB || AppState.currentState === 'active');
   const [webSound, setWebSound] = useState(() => IS_WEB && webAlertsEnabled());
@@ -121,6 +131,7 @@ export function useMonitor() {
         setCoords({ latitude: saved.latitude, longitude: saved.longitude });
       }
       setAcked(await loadAcked());
+      setSettings(await loadSettings());
       if (WEB_OVERRIDE) {
         setPermission('granted');
         updateCoords(WEB_OVERRIDE);
@@ -182,7 +193,21 @@ export function useMonitor() {
     return () => clearInterval(id);
   }, [active, permission, hasCoords, check]);
 
-  const userZones = useMemo(() => (coords ? zonesForLocation(coords) : []), [coords]);
+  const userZones = useMemo(
+    () => userZonesFor(coords, CONFIG.ZONES, settings.nearbyKm, settings.pinned),
+    [coords, settings],
+  );
+
+  /** Change a setting, save it on the phone, and re-check the channels with it. */
+  const updateSettings = useCallback(
+    async (patch: Partial<Settings>) => {
+      const next = { ...settings, ...patch };
+      setSettings(next);
+      await saveSettings(next);
+      check();
+    },
+    [settings, check],
+  );
 
   const overlayHit: ZoneHit | null =
     testHit ?? result?.state.hits.find((h) => !acked.has(hitKey(h))) ?? null;
@@ -259,6 +284,8 @@ export function useMonitor() {
     requestLocation,
     coords,
     userZones,
+    settings,
+    updateSettings,
     result,
     checking,
     check,

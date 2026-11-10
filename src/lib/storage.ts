@@ -1,10 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { CONFIG } from '../config';
 import type { Coords } from '../types';
 
 const K = {
   coords: 'lastCoords',
   notified: 'notifiedKeys',
   acked: 'ackedKeys',
+  settings: 'settings',
 };
 
 async function readJson<T>(key: string, fallback: T): Promise<T> {
@@ -32,3 +34,24 @@ export const loadNotified = async () => new Set(await readJson<string[]>(K.notif
 export const addNotified = (keys: string[]) => addKeys(K.notified, keys);
 export const loadAcked = async () => new Set(await readJson<string[]>(K.acked, []));
 export const addAcked = (keys: string[]) => addKeys(K.acked, keys);
+
+/** User choices made on the Settings screen. Stored on the phone only. */
+export interface Settings {
+  /** Also alert for districts within this distance of the user, km. */
+  nearbyKm: number;
+  /** Zone ids added by hand: alerted wherever the user is. */
+  pinned: string[];
+}
+
+export const defaultSettings = (): Settings => ({ nearbyKm: CONFIG.ZONE_BUFFER_KM, pinned: [] });
+
+export async function loadSettings(): Promise<Settings> {
+  const s = await readJson<Partial<Settings>>(K.settings, {});
+  const d = defaultSettings();
+  return {
+    nearbyKm: typeof s.nearbyKm === 'number' && s.nearbyKm >= 0 ? s.nearbyKm : d.nearbyKm,
+    pinned: Array.isArray(s.pinned) ? s.pinned.filter((x) => typeof x === 'string') : d.pinned,
+  };
+}
+
+export const saveSettings = (s: Settings) => writeJson(K.settings, s);
