@@ -11,6 +11,7 @@ import { aheadZones as zonesAhead, cleanMotion, motionMode, NO_MOTION, type Moti
 import { setSirenVolume, startKeepAlive, startNativeSiren, stopKeepAlive, stopNativeSiren } from '../lib/nativeSiren';
 import { hitTexts, notifyHit, setupNotifications } from '../lib/notifications';
 import { messageUrl } from '../lib/telegram';
+import { fetchAiTargets, stillFresh, type AiTargets } from '../lib/aiTargets';
 import { activeThreats } from '../lib/threat';
 import { spokenAlert } from '../lib/threatText';
 import { speak, stopSpeaking } from '../lib/voice';
@@ -128,6 +129,7 @@ export function useMonitor() {
   const [testHit, setTestHit] = useState<ZoneHit | null>(null);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [motion, setMotion] = useState<Motion>(NO_MOTION);
+  const [ai, setAi] = useState<AiTargets | null>(null);
   // In a browser, keep checking while the tab is hidden (browsers then throttle timers to ~1/min).
   const [active, setActive] = useState(IS_WEB || AppState.currentState === 'active');
   const [webSound, setWebSound] = useState(() => IS_WEB && webAlertsEnabled());
@@ -246,6 +248,8 @@ export function useMonitor() {
           );
           setResult(r);
           if (r.newHits.length > 0) alarm(r.newHits[0], false, cfg, motionRef.current);
+          // Extra, never awaited: the alarm above must not wait for the AI service.
+          if (CONFIG.AI_TARGETS_URL) fetchAiTargets(CONFIG.AI_TARGETS_URL, r.messages).then(setAi);
         } catch (e) {
           setResult((prev) => (prev ? { ...prev, errors: [String(e)] } : prev));
         }
@@ -278,10 +282,14 @@ export function useMonitor() {
   const aheadZones = useMemo(() => zonesAhead(coords, motion, CONFIG.ZONES, userZones), [coords, motion, userZones]);
 
   /** What is flying where, read from the latest posts (for the Targets list and the map). */
-  const threats = useMemo(
-    () => (result ? activeThreats(result.messages, result.checkedAt) : []),
-    [result],
-  );
+  const { threats, threatSource } = useMemo(() => {
+    if (!result) return { threats: [], threatSource: 'rules' as const };
+    // The AI answer counts only while it covers the newest post the app has seen.
+    const fromAi = stillFresh(ai, result.messages, result.checkedAt);
+    return fromAi
+      ? { threats: fromAi, threatSource: 'ai' as const }
+      : { threats: activeThreats(result.messages, result.checkedAt), threatSource: 'rules' as const };
+  }, [result, ai]);
 
   /** Change a setting, save it on the phone, and re-check the channels with it. */
   const updateSettings = useCallback(
@@ -385,6 +393,7 @@ export function useMonitor() {
     aheadZones,
     motion,
     threats,
+    threatSource,
     speakAgain,
     settings,
     updateSettings,

@@ -1,0 +1,11 @@
+# Cloudflare Worker that turns the channel's posts into a list of active targets with Claude.
+# Deploy:  npm install && npx wrangler login && npx wrangler secret put ANTHROPIC_API_KEY && npx wrangler deploy
+name = "alert-nearby-ai-targets"
+main = "src/worker.js"
+compatibility_date = "2026-10-01"
+
+[vars]
+# Public Telegram channel to read (username without @).
+CHANNEL = "vinnytsiappo"
+# Claude model. claude-opus-5-5 reads the posts best; claude-haiku-5-5 costs about 40x less.
+CLAUDE_MODEL = "claude-opus-5-5"

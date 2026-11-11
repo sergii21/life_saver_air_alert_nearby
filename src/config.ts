@@ -95,6 +95,15 @@ export const CONFIG = {
    */
   LOOKAHEAD_MINUTES: 5,
 
+  /**
+   * Address of the AI targets service (see server/README.md), e.g.
+   * 'https://alert-nearby-ai-targets.<account>.workers.dev'. It decides which targets are
+   * still active by reading the posts with Claude. Empty = the app's own rules only; the
+   * rules are also the fallback whenever the service is slow, down or behind.
+   * Can be set at build time with EXPO_PUBLIC_AI_TARGETS_URL.
+   */
+  AI_TARGETS_URL: (process.env.EXPO_PUBLIC_AI_TARGETS_URL ?? '') as string,
+
   /** Emergency phone number shown on the alert screen. */
   EMERGENCY_PHONE: '112',
 

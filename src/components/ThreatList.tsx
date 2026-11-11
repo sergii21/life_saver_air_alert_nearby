@@ -10,15 +10,18 @@ import { Button } from './Button';
 interface Props {
   threats: ThreatTrack[];
   coords: Coords | null;
+  /** Who decided which targets are still active. */
+  source: 'ai' | 'rules';
   onOpenMap: () => void;
 }
 
 /** "What is flying where" — how many targets, of what kind, towards which place. */
-export const ThreatList = memo(function ThreatList({ threats, coords, onOpenMap }: Props) {
+export const ThreatList = memo(function ThreatList({ threats, coords, source, onOpenMap }: Props) {
   if (threats.length === 0) return null;
   return (
     <View style={styles.card}>
       <Text style={styles.title}>{t('targetsTitle')}</Text>
+      <Text style={styles.source}>{t(source === 'ai' ? 'sourceAi' : 'sourceRules')}</Text>
       {threats.slice(0, 8).map((track) => {
         const towards = relationToUser(track, coords)?.towardsUser ?? false;
         const meta = [relationLine(track, coords), track.from ? t(`from${track.from}`) : '', timeAgo(track.message.date)]
@@ -51,7 +54,8 @@ const styles = StyleSheet.create({
     padding: 14,
     marginTop: 12,
   },
-  title: { fontSize: 16, fontWeight: '800', color: colors.text, marginBottom: 6 },
+  title: { fontSize: 16, fontWeight: '800', color: colors.text },
+  source: { fontSize: 11, color: colors.muted, marginBottom: 6 },
   row: { flexDirection: 'row', paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.border },
   rowHot: { backgroundColor: colors.dangerBg, borderRadius: 8, paddingHorizontal: 6 },
   icon: { fontSize: 22, width: 32 },

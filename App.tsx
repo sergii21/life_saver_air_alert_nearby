@@ -84,7 +84,7 @@ function Home() {
         />
 
         <Safe>
-          <ThreatList threats={m.threats} coords={m.coords} onOpenMap={openSettings} />
+          <ThreatList threats={m.threats} coords={m.coords} source={m.threatSource} onOpenMap={openSettings} />
         </Safe>
 
         <Button title={m.checking ? t('checking') : t('checkNow')} onPress={m.check} disabled={m.checking} />

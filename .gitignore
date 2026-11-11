@@ -43,3 +43,7 @@ yarn-error.*
 # Store credentials — never commit
 google-play-service-account.json
 *.p8
+
+# AI targets server (Cloudflare Worker)
+.wrangler/
+.dev.vars

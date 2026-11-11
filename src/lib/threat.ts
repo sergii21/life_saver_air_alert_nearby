@@ -178,6 +178,11 @@ function findPlaces(text: string, places: Place[]): Found[] {
     .sort((a, b) => a.start - b.start);
 }
 
+/** The place a name refers to ("Уланів", "на Вороновицю"), or null if it is not in the table. */
+export function placeByName(name: string, places: Place[] = CONFIG.THREAT_PLACES): Place | null {
+  return findPlaces(normalize(name), places)[0]?.place ?? null;
+}
+
 /** Posts already read: a post is parsed once, however often the screen redraws. */
 const parsed = new WeakMap<ChannelMessage, ThreatTrack[]>();
 
