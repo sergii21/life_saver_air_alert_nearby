@@ -1,3 +1,4 @@
+import type { ThreatTrack } from '../lib/threat';
 import type { Coords, Zone } from '../types';
 
 export interface ZoneMapProps {
@@ -7,7 +8,8 @@ export interface ZoneMapProps {
   activeIds: Set<string>;
   /** Zones added by hand. */
   pinnedIds: Set<string>;
-  onToggle: (zoneId: string) => void;
+  /** Targets reported by the channel: drawn as arrows towards the places they head to. */
+  threats: ThreatTrack[];
 }
 
 /**

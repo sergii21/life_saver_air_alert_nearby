@@ -41,9 +41,21 @@ export interface Settings {
   nearbyKm: number;
   /** Zone ids added by hand: alerted wherever the user is. */
   pinned: string[];
+  /** UI and voice language; 'auto' follows the phone. */
+  language: 'auto' | 'uk' | 'en';
+  /** Speak the advice aloud during an alarm. */
+  voice: boolean;
+  /** Chosen system voice; null = the phone's default for the language. */
+  voiceId: string | null;
 }
 
-export const defaultSettings = (): Settings => ({ nearbyKm: CONFIG.ZONE_BUFFER_KM, pinned: [] });
+export const defaultSettings = (): Settings => ({
+  nearbyKm: CONFIG.ZONE_BUFFER_KM,
+  pinned: [],
+  language: 'auto',
+  voice: true,
+  voiceId: null,
+});
 
 export async function loadSettings(): Promise<Settings> {
   const s = await readJson<Partial<Settings>>(K.settings, {});
@@ -51,6 +63,9 @@ export async function loadSettings(): Promise<Settings> {
   return {
     nearbyKm: typeof s.nearbyKm === 'number' && s.nearbyKm >= 0 ? s.nearbyKm : d.nearbyKm,
     pinned: Array.isArray(s.pinned) ? s.pinned.filter((x) => typeof x === 'string') : d.pinned,
+    language: s.language === 'uk' || s.language === 'en' ? s.language : d.language,
+    voice: typeof s.voice === 'boolean' ? s.voice : d.voice,
+    voiceId: typeof s.voiceId === 'string' ? s.voiceId : d.voiceId,
   };
 }
 

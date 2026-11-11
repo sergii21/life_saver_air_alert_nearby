@@ -3,13 +3,17 @@ import * as Location from 'expo-location';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Platform, Vibration } from 'react-native';
 import { CONFIG, configuredChannels } from '../config';
-import { t } from '../i18n';
+import { lang, setLang, t } from '../i18n';
 import { registerBackgroundCheck } from '../lib/background';
 import { hitKey, userZonesFor } from '../lib/evaluate';
 import { runCheck, type CheckResult } from '../lib/monitor';
-import { startKeepAlive, startNativeSiren, stopKeepAlive, stopNativeSiren } from '../lib/nativeSiren';
+import { aheadZones as zonesAhead, cleanMotion, motionMode, NO_MOTION, type Motion } from '../lib/motion';
+import { setSirenVolume, startKeepAlive, startNativeSiren, stopKeepAlive, stopNativeSiren } from '../lib/nativeSiren';
 import { hitTexts, notifyHit, setupNotifications } from '../lib/notifications';
 import { messageUrl } from '../lib/telegram';
+import { activeThreats } from '../lib/threat';
+import { spokenAlert } from '../lib/threatText';
+import { speak, stopSpeaking } from '../lib/voice';
 import {
   enableWebAlerts,
   onAudioUnlocked,
@@ -32,12 +36,16 @@ import {
 import type { Coords, ZoneHit } from '../types';
 
 /** Browser preview only: http://localhost:8081/?lat=49.233&lng=28.5 fakes the location. */
-function webLocationOverride(): Coords | null {
+type Fix = Coords & { speed?: number | null; heading?: number | null };
+
+function webLocationOverride(): Fix | null {
   if (typeof window === 'undefined' || !window.location?.search) return null;
   const q = new URLSearchParams(window.location.search);
   const latitude = Number(q.get('lat'));
   const longitude = Number(q.get('lng') ?? q.get('lon'));
-  return q.has('lat') && Number.isFinite(latitude) && Number.isFinite(longitude) ? { latitude, longitude } : null;
+  if (!q.has('lat') || !Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  // Optional: &speed=15&heading=90 (m/s, degrees) fakes movement.
+  return { latitude, longitude, speed: q.has('speed') ? Number(q.get('speed')) : null, heading: q.has('heading') ? Number(q.get('heading')) : null };
 }
 const WEB_OVERRIDE = webLocationOverride();
 
@@ -49,7 +57,55 @@ const IS_WEB = Platform.OS === 'web';
 /** iPhone: the app keeps running (and checking) in the background — see CONFIG.BACKGROUND_KEEP_ALIVE. */
 const KEEP_ALIVE = Platform.OS === 'ios' && CONFIG.BACKGROUND_KEEP_ALIVE;
 
-function alarm(hit: ZoneHit, isTest = false) {
+/** Siren first; a few seconds later it goes quiet and the voice says what to do. */
+let announceTimer: ReturnType<typeof setTimeout> | null = null;
+
+function cancelAnnounce() {
+  if (announceTimer) clearTimeout(announceTimer);
+  announceTimer = null;
+  stopSpeaking();
+}
+
+function announce(hit: ZoneHit, isTest: boolean, settings: Settings, motion: Motion, delayMs = 2500) {
+  cancelAnnounce();
+  if (!settings.voice) return;
+  announceTimer = setTimeout(() => {
+    announceTimer = null;
+    try {
+      if (!IS_WEB) setSirenVolume(0.12);
+      speak(spokenAlert(hit, motionMode(motion.speed), isTest), {
+        lang,
+        voiceId: settings.voiceId,
+        onEnd: () => setSirenVolume(1),
+      });
+    } catch {
+      // The voice is an extra: the siren must keep sounding at full volume.
+      setSirenVolume(1);
+    }
+  }, delayMs);
+}
+
+/** A check that takes longer than this is abandoned, so the next one can start. */
+const CHECK_TIMEOUT_MS = 25_000;
+
+function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('check timed out')), ms);
+    work.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(timer);
+        reject(e);
+      },
+    );
+  });
+}
+
+function alarm(hit: ZoneHit, isTest: boolean, settings: Settings, motion: Motion) {
+  announce(hit, isTest, settings, motion);
   if (IS_WEB) {
     // Browser preview: siren sound (repeats until "I'm safe") + desktop notification.
     startWebSiren();
@@ -71,6 +127,7 @@ export function useMonitor() {
   const [acked, setAcked] = useState<Set<string>>(new Set());
   const [testHit, setTestHit] = useState<ZoneHit | null>(null);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
+  const [motion, setMotion] = useState<Motion>(NO_MOTION);
   // In a browser, keep checking while the tab is hidden (browsers then throttle timers to ~1/min).
   const [active, setActive] = useState(IS_WEB || AppState.currentState === 'active');
   const [webSound, setWebSound] = useState(() => IS_WEB && webAlertsEnabled());
@@ -78,15 +135,21 @@ export function useMonitor() {
   useEffect(() => (IS_WEB ? onAudioUnlocked(() => setWebSound(true)) : undefined), []);
 
   const coordsRef = useRef<Coords | null>(null);
+  const motionRef = useRef<Motion>(NO_MOTION);
+  const settingsRef = useRef<Settings>(settings);
+  settingsRef.current = settings;
   const checkingRef = useRef(false);
   const pendingRef = useRef(false);
   const watchRef = useRef<Location.LocationSubscription | null>(null);
 
-  const updateCoords = useCallback((c: Coords) => {
+  const updateCoords = useCallback((c: Fix) => {
     const next = { latitude: c.latitude, longitude: c.longitude };
     coordsRef.current = next;
     setCoords(next);
     saveCoords(next);
+    const m = cleanMotion(c.speed, c.heading);
+    motionRef.current = m;
+    setMotion((prev) => (prev.speed === m.speed && prev.heading === m.heading ? prev : m));
   }, []);
 
   const startLocation = useCallback(async () => {
@@ -131,7 +194,10 @@ export function useMonitor() {
         setCoords({ latitude: saved.latitude, longitude: saved.longitude });
       }
       setAcked(await loadAcked());
-      setSettings(await loadSettings());
+      const stored = await loadSettings();
+      setLang(stored.language);
+      settingsRef.current = stored;
+      setSettings(stored);
       if (WEB_OVERRIDE) {
         setPermission('granted');
         updateCoords(WEB_OVERRIDE);
@@ -166,9 +232,20 @@ export function useMonitor() {
         try {
           // Off screen (keep-alive): also post a notification; the siren supplies the sound.
           const offScreen = !IS_WEB && AppState.currentState !== 'active';
-          const r = await runCheck(coordsRef.current, { notify: offScreen, notifySound: false });
+          // Districts on the user's course are checked too ("danger ahead").
+          const cfg = settingsRef.current;
+          const mine = userZonesFor(coordsRef.current, CONFIG.ZONES, cfg.nearbyKm, cfg.pinned);
+          const ahead = zonesAhead(coordsRef.current, motionRef.current, CONFIG.ZONES, mine);
+          const r = await withTimeout(
+            runCheck(coordsRef.current, {
+              notify: offScreen,
+              notifySound: false,
+              aheadZoneIds: ahead.map((z) => z.id),
+            }),
+            CHECK_TIMEOUT_MS,
+          );
           setResult(r);
-          if (r.newHits.length > 0) alarm(r.newHits[0]);
+          if (r.newHits.length > 0) alarm(r.newHits[0], false, cfg, motionRef.current);
         } catch (e) {
           setResult((prev) => (prev ? { ...prev, errors: [String(e)] } : prev));
         }
@@ -198,10 +275,20 @@ export function useMonitor() {
     [coords, settings],
   );
 
+  const aheadZones = useMemo(() => zonesAhead(coords, motion, CONFIG.ZONES, userZones), [coords, motion, userZones]);
+
+  /** What is flying where, read from the latest posts (for the Targets list and the map). */
+  const threats = useMemo(
+    () => (result ? activeThreats(result.messages, result.checkedAt) : []),
+    [result],
+  );
+
   /** Change a setting, save it on the phone, and re-check the channels with it. */
   const updateSettings = useCallback(
     async (patch: Partial<Settings>) => {
       const next = { ...settings, ...patch };
+      if (patch.language) setLang(next.language);
+      settingsRef.current = next;
       setSettings(next);
       await saveSettings(next);
       check();
@@ -217,6 +304,8 @@ export function useMonitor() {
 
   const acknowledge = useCallback(async () => {
     stopWebSiren();
+    cancelAnnounce();
+    Vibration.cancel();
     if (!IS_WEB) stopNativeSiren();
     if (testHit) {
       setTestHit(null);
@@ -252,9 +341,10 @@ export function useMonitor() {
         const { title, body } = hitTexts(hit, true);
         webNotify(title, body);
       });
+      announce(hit, true, settingsRef.current, motionRef.current);
       return null;
     }
-    alarm(hit, true);
+    alarm(hit, true, settingsRef.current, motionRef.current);
     notifyHit(hit, true).catch(() => {});
     return null;
   }, [userZones]);
@@ -265,7 +355,15 @@ export function useMonitor() {
     setNotifGranted(r.notifications);
     setWebNotif(webNotificationPermission());
     // A threat that arrived before sound was enabled: sound it now.
-    if (overlayRef.current) alarm(overlayRef.current, overlayRef.current.message.id === 0);
+    if (overlayRef.current) {
+      alarm(overlayRef.current, overlayRef.current.message.id === 0, settingsRef.current, motionRef.current);
+    }
+  }, []);
+
+  /** "Say it again" on the alert screen. */
+  const speakAgain = useCallback(() => {
+    const hit = overlayRef.current;
+    if (hit) announce(hit, hit.message.id === 0, { ...settingsRef.current, voice: true }, motionRef.current, 0);
   }, []);
 
   /** 2-second siren so the user can check the speakers / volume. */
@@ -284,6 +382,10 @@ export function useMonitor() {
     requestLocation,
     coords,
     userZones,
+    aheadZones,
+    motion,
+    threats,
+    speakAgain,
     settings,
     updateSettings,
     result,

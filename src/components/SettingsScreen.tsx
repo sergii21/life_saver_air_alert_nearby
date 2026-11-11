@@ -1,11 +1,15 @@
+import { useEffect, useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CONFIG } from '../config';
-import { t, zoneName } from '../i18n';
+import { lang, t, zoneName, type LangChoice } from '../i18n';
 import { zonesForLocation } from '../lib/evaluate';
 import { distanceKm } from '../lib/geo';
 import type { Settings } from '../lib/storage';
+import type { ThreatTrack } from '../lib/threat';
+import { listVoices, speak, type VoiceOption } from '../lib/voice';
 import { colors } from '../theme';
 import type { Coords, Zone } from '../types';
+import { Safe } from './Safe';
 import { ZoneMap } from './ZoneMap';
 
 interface Props {
@@ -13,6 +17,7 @@ interface Props {
   onClose: () => void;
   coords: Coords | null;
   userZones: Zone[];
+  threats: ThreatTrack[];
   settings: Settings;
   onChange: (patch: Partial<Settings>) => void;
 }
@@ -20,7 +25,45 @@ interface Props {
 const HAS_MAP = Platform.OS !== 'web';
 
 /** District map + the two user settings: "nearby" distance and districts added by hand. */
-export function SettingsScreen({ visible, onClose, coords, userZones, settings, onChange }: Props) {
+const LANGS: [LangChoice, string][] = [
+  ['auto', ''],
+  ['uk', 'Українська'],
+  ['en', 'English'],
+];
+
+interface ChipProps {
+  label: string;
+  on: boolean;
+  onPress: () => void;
+}
+
+function Chip({ label, on, onPress }: ChipProps) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: on }}
+      onPress={onPress}
+      style={[styles.chip, on && styles.chipOn]}
+    >
+      <Text style={[styles.chipText, on && styles.chipTextOn]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+export function SettingsScreen(props: Props) {
+  // Nothing is built while the screen is closed.
+  return props.visible ? <SettingsContent {...props} /> : null;
+}
+
+function SettingsContent({ visible, onClose, coords, userZones, threats, settings, onChange }: Props) {
+  // Voices the phone has for the current language.
+  const [voices, setVoices] = useState<VoiceOption[]>([]);
+  useEffect(() => {
+    if (visible) listVoices(lang).then(setVoices);
+  }, [visible, settings.language]);
+  const voiceLabel = (v: VoiceOption) =>
+    v.name + (v.gender ? ` · ${t(v.gender === 'f' ? 'voiceWoman' : 'voiceMan')}` : '');
+
   const districts = CONFIG.ZONES.filter((z) => z.kind === 'district');
   const activeIds = new Set(userZones.map((z) => z.id));
   const pinnedIds = new Set(settings.pinned);
@@ -49,11 +92,20 @@ export function SettingsScreen({ visible, onClose, coords, userZones, settings, 
 
         {HAS_MAP && (
           <View style={styles.mapBox}>
-            <ZoneMap zones={CONFIG.ZONES} coords={coords} activeIds={activeIds} pinnedIds={pinnedIds} onToggle={toggle} />
+            <Safe>
+              <ZoneMap
+              zones={CONFIG.ZONES}
+              coords={coords}
+              activeIds={activeIds}
+              pinnedIds={pinnedIds}
+              threats={threats}
+            />
+            </Safe>
           </View>
         )}
 
         <ScrollView contentContainerStyle={styles.content}>
+          {HAS_MAP && threats.length > 0 && <Text style={[styles.hint, styles.hintGap]}>{t('mapThreatHint')}</Text>}
           {HAS_MAP && <Text style={styles.hint}>{t('mapHint')}</Text>}
 
           <Text style={styles.section}>{t('nearbyTitle')}</Text>
@@ -73,6 +125,45 @@ export function SettingsScreen({ visible, onClose, coords, userZones, settings, 
                 </Pressable>
               );
             })}
+          </View>
+
+          <Text style={styles.section}>{t('voiceTitle')}</Text>
+          <Text style={styles.hint}>{t('voiceHint')}</Text>
+          <View style={styles.chips}>
+            <Chip label={t('on')} on={settings.voice} onPress={() => onChange({ voice: true })} />
+            <Chip label={t('off')} on={!settings.voice} onPress={() => onChange({ voice: false })} />
+          </View>
+          {settings.voice && (
+            <>
+              <Text style={[styles.hint, styles.hintTop]}>{t('voiceChoose')}</Text>
+              <View style={styles.chips}>
+                <Chip label={t('voiceDefault')} on={settings.voiceId === null} onPress={() => onChange({ voiceId: null })} />
+                {voices.map((v) => (
+                  <Chip key={v.id} label={voiceLabel(v)} on={settings.voiceId === v.id} onPress={() => onChange({ voiceId: v.id })} />
+                ))}
+              </View>
+              {voices.length <= 1 && <Text style={[styles.hint, styles.hintTop]}>{t('voiceNone')}</Text>}
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => speak(t('voiceSample'), { lang, voiceId: settings.voiceId })}
+                style={styles.rowBtn}
+              >
+                <Text style={styles.rowBtnText}>{t('voiceTry')}</Text>
+              </Pressable>
+            </>
+          )}
+
+          <Text style={styles.section}>{t('langTitle')}</Text>
+          <View style={styles.chips}>
+            {LANGS.map(([code, label]) => (
+              <Chip
+                key={code}
+                label={label || t('langAuto')}
+                on={settings.language === code}
+                // A voice belongs to one language, so the choice is reset.
+                onPress={() => onChange({ language: code, voiceId: null })}
+              />
+            ))}
           </View>
 
           <Text style={styles.section}>{t('myZonesTitle')}</Text>
@@ -121,6 +212,8 @@ const styles = StyleSheet.create({
   mapBox: { height: '45%', borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.border },
   content: { padding: 16, paddingBottom: 48 },
   hint: { fontSize: 13, color: colors.muted, lineHeight: 18 },
+  hintGap: { marginBottom: 6, color: colors.danger },
+  hintTop: { marginTop: 12 },
   section: { fontSize: 16, fontWeight: '800', color: colors.text, marginTop: 18, marginBottom: 4 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   chip: {

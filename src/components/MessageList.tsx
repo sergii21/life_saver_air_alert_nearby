@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { t, timeAgo } from '../i18n';
 import { isAllClear, zonesMentioned } from '../lib/evaluate';
@@ -6,7 +7,7 @@ import { messageUrl } from '../lib/telegram';
 import { colors } from '../theme';
 import type { ChannelMessage, Zone } from '../types';
 
-export function MessageList({ messages, userZones }: { messages: ChannelMessage[]; userZones: Zone[] }) {
+export const MessageList = memo(function MessageList({ messages, userZones }: { messages: ChannelMessage[]; userZones: Zone[] }) {
   const userIds = new Set(userZones.map((z) => z.id));
   const sorted = [...messages]
     .sort((a, b) => Date.parse(b.date ?? '') - Date.parse(a.date ?? ''))
@@ -42,7 +43,7 @@ export function MessageList({ messages, userZones }: { messages: ChannelMessage[
       })}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   header: { fontSize: 17, fontWeight: '800', color: colors.text, marginTop: 22, marginBottom: 8 },

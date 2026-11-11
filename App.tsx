@@ -1,21 +1,28 @@
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Alert, Linking, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { AlertOverlay } from './src/components/AlertOverlay';
 import { Button } from './src/components/Button';
 import { MessageList } from './src/components/MessageList';
 import { PermissionScreen } from './src/components/PermissionScreen';
+import { Safe } from './src/components/Safe';
 import { SettingsScreen } from './src/components/SettingsScreen';
 import { StatusCard } from './src/components/StatusCard';
+import { ThreatList } from './src/components/ThreatList';
 import { CONFIG, configuredChannels } from './src/config';
 import { useMonitor } from './src/hooks/useMonitor';
 import { t } from './src/i18n';
+import { motionMode } from './src/lib/motion';
 import { colors } from './src/theme';
+
+const NO_MESSAGES: never[] = [];
 
 function Home() {
   const m = useMonitor();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const openSettings = useCallback(() => setSettingsOpen(true), []);
+  const closeSettings = useCallback(() => setSettingsOpen(false), []);
 
   if (m.permission !== 'granted') {
     return <PermissionScreen permission={m.permission} onAllow={m.requestLocation} />;
@@ -71,13 +78,21 @@ function Home() {
           hits={m.result?.state.hits ?? []}
           coords={m.coords}
           userZones={m.userZones}
+          motion={m.motion}
+          aheadZones={m.aheadZones}
           lastCheck={m.result?.checkedAt ?? null}
         />
 
-        <Button title={m.checking ? t('checking') : t('checkNow')} onPress={m.check} disabled={m.checking} />
-        <Button title={t('settingsOpen')} onPress={() => setSettingsOpen(true)} outline />
+        <Safe>
+          <ThreatList threats={m.threats} coords={m.coords} onOpenMap={openSettings} />
+        </Safe>
 
-        <MessageList messages={m.result?.messages ?? []} userZones={m.userZones} />
+        <Button title={m.checking ? t('checking') : t('checkNow')} onPress={m.check} disabled={m.checking} />
+        <Button title={t('settingsOpen')} onPress={openSettings} outline />
+
+        <Safe>
+          <MessageList messages={m.result?.messages ?? NO_MESSAGES} userZones={m.userZones} />
+        </Safe>
 
         <View style={styles.footer}>
           <Button
@@ -98,19 +113,24 @@ function Home() {
         </View>
       </ScrollView>
 
-      <SettingsScreen
+      <Safe>
+        <SettingsScreen
         visible={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
+        onClose={closeSettings}
         coords={m.coords}
         userZones={m.userZones}
+        threats={m.threats}
         settings={m.settings}
         onChange={m.updateSettings}
-      />
+        />
+      </Safe>
 
       <AlertOverlay
         hit={m.overlayHit}
         coords={m.coords}
         isTest={m.isTest}
+        mode={motionMode(m.motion.speed)}
+        onSpeak={m.speakAgain}
         onClose={m.acknowledge}
         onEnableSound={m.isWeb && !m.webSound ? m.enableWebSound : undefined}
       />

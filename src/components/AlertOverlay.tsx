@@ -2,9 +2,13 @@ import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CONFIG } from '../config';
 import { t, timeAgo, zoneName } from '../i18n';
+import { isDangerHit } from '../lib/evaluate';
 import { escapePoint } from '../lib/geo';
 import { open, phoneUrl, shelterSearchUrl, walkingRouteUrl } from '../lib/links';
+import type { MotionMode } from '../lib/motion';
 import { messageUrl } from '../lib/telegram';
+import { trackFor } from '../lib/threat';
+import { adviceFor, KIND_ICON, relationLine, threatLine } from '../lib/threatText';
 import { colors } from '../theme';
 import type { Coords, ZoneHit } from '../types';
 import { Button } from './Button';
@@ -13,6 +17,10 @@ interface Props {
   hit: ZoneHit | null;
   coords: Coords | null;
   isTest: boolean;
+  /** How the user is moving — picks the advice that fits. */
+  mode: MotionMode;
+  /** Say the advice aloud again. */
+  onSpeak?: () => void;
   onClose: () => void;
   /** Browser preview: sound is still blocked — show a button that unlocks it. */
   onEnableSound?: () => void;
@@ -20,9 +28,11 @@ interface Props {
 
 const CITY = CONFIG.ZONES.find((z) => z.kind === 'area')?.center;
 
-export function AlertOverlay({ hit, coords, isTest, onClose, onEnableSound }: Props) {
+export function AlertOverlay({ hit, coords, isTest, mode, onSpeak, onClose, onEnableSound }: Props) {
   if (!hit) return null;
-  const danger = hit.zone.kind === 'district';
+  const danger = isDangerHit(hit);
+  const track = isTest ? null : trackFor(hit.message, hit.zone.id);
+  const where = track ? relationLine(track, coords) : '';
   const bg = danger ? colors.danger : colors.caution;
   const zone = zoneName(hit.zone);
   const km = CONFIG.ESCAPE_DISTANCE_KM;
@@ -36,15 +46,26 @@ export function AlertOverlay({ hit, coords, isTest, onClose, onEnableSound }: Pr
             <Button title={t('webEnableSound')} color={colors.white} textColor={bg} onPress={onEnableSound} />
           )}
           <Text style={styles.icon}>{danger ? '🚨' : '⚠️'}</Text>
-          <Text style={styles.title}>{danger ? t('leaveNow') : t('cautionTitle')}</Text>
+          <Text style={styles.title}>{hit.ahead ? t('aheadTitle') : danger ? t('leaveNow') : t('cautionTitle')}</Text>
           <Text style={styles.zone}>{zone}</Text>
-          <Text style={styles.body}>{t(danger ? 'dangerBody' : 'cautionBody', { zone })}</Text>
+          <Text style={styles.body}>{t(hit.ahead ? 'aheadBody' : danger ? 'dangerBody' : 'cautionBody', { zone })}</Text>
+          {track && (
+            <View style={styles.trackBox}>
+              <Text style={styles.trackText}>
+                {KIND_ICON[track.kind]} {threatLine(track)}
+              </Text>
+              {!!where && <Text style={styles.trackMeta}>{where}</Text>}
+            </View>
+          )}
 
           <View style={styles.adviceBox}>
-            <Text style={styles.advice}>1. {t('advice1', { km })}</Text>
-            <Text style={styles.advice}>2. {t('advice2')}</Text>
-            <Text style={styles.advice}>3. {t('advice3')}</Text>
+            {adviceFor(hit, mode).map((line, i) => (
+              <Text key={i} style={styles.advice}>
+                {i + 1}. {line}
+              </Text>
+            ))}
           </View>
+          {onSpeak && <Button title={t('speakAgain')} color={colors.white} outline onPress={onSpeak} />}
 
           {coords && danger && (
             <Button
@@ -102,6 +123,9 @@ const styles = StyleSheet.create({
   title: { fontSize: 28, fontWeight: '900', color: colors.white, textAlign: 'center', marginTop: 8 },
   zone: { fontSize: 24, fontWeight: '800', color: colors.white, textAlign: 'center', marginTop: 6 },
   body: { fontSize: 17, color: colors.white, textAlign: 'center', marginTop: 10, lineHeight: 24 },
+  trackBox: { backgroundColor: 'rgba(0,0,0,0.28)', borderRadius: 12, padding: 12, marginTop: 14 },
+  trackText: { color: colors.white, fontSize: 18, fontWeight: '800', textAlign: 'center', lineHeight: 25 },
+  trackMeta: { color: colors.white, fontSize: 14, textAlign: 'center', marginTop: 4, opacity: 0.9 },
   adviceBox: { backgroundColor: 'rgba(0,0,0,0.18)', borderRadius: 12, padding: 14, marginVertical: 16 },
   advice: { color: colors.white, fontSize: 16, lineHeight: 23, marginVertical: 3 },
   msgBox: { backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 12, padding: 12, marginTop: 20 },

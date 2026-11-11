@@ -11,6 +11,8 @@ export interface EvaluateOptions {
   zoneBufferKm?: number;
   /** Zones the user added by hand in Settings: always treated as the user's zones. */
   pinnedZoneIds?: string[];
+  /** Zones on the user's course (see motion.ts): a threat there is reported as "danger ahead". */
+  aheadZoneIds?: string[];
   requireThreatKeyword?: boolean;
   allClearKeywords?: string[];
   regionKeywords?: string[];
@@ -52,7 +54,11 @@ export function zonesMentioned(message: ChannelMessage, zones = CONFIG.ZONES): Z
 export const isAllClear = (message: ChannelMessage, keywords = CONFIG.ALL_CLEAR_KEYWORDS) =>
   containsAny(normalize(message.text), keywords);
 
-export const hitKey = (h: ZoneHit) => `${h.zone.id}|${h.message.channel}/${h.message.id}`;
+/** An "ahead" hit has its own key, so entering the zone later still raises the full alarm. */
+export const hitKey = (h: ZoneHit) => `${h.ahead ? 'ahead:' : ''}${h.zone.id}|${h.message.channel}/${h.message.id}`;
+
+/** DANGER = a threat in a district the user is in. Ahead and whole-city hits are CAUTION. */
+export const isDangerHit = (h: ZoneHit) => !h.ahead && h.zone.kind === 'district';
 
 /**
  * Core decision: given the latest channel messages and the user's location,
@@ -73,7 +79,9 @@ export function evaluate(messages: ChannelMessage[], coords: Coords | null, opts
   const region = opts.regionKeywords ?? CONFIG.REGION_KEYWORDS;
 
   const userZones = userZonesFor(coords, zones, opts.zoneBufferKm ?? CONFIG.ZONE_BUFFER_KM, opts.pinnedZoneIds);
-  if (userZones.length === 0) return { level: 'safe', hits: [], userZones };
+  const aheadIds = opts.aheadZoneIds ?? [];
+  const aheadZones = zones.filter((z) => aheadIds.includes(z.id) && !userZones.some((u) => u.id === z.id));
+  if (userZones.length === 0 && aheadZones.length === 0) return { level: 'safe', hits: [], userZones };
 
   const recent = messages
     .filter((m) => {
@@ -90,7 +98,7 @@ export function evaluate(messages: ChannelMessage[], coords: Coords | null, opts
   const regionClearAt = regionClear ? ts(regionClear) : -Infinity;
 
   const hits: ZoneHit[] = [];
-  for (const zone of userZones) {
+  for (const zone of [...userZones, ...aheadZones]) {
     const latest = recent.find((m) => containsAny(normalize(m.text), zone.keywords));
     if (!latest) continue;
     if (ts(latest) <= regionClearAt) continue;
@@ -98,16 +106,16 @@ export function evaluate(messages: ChannelMessage[], coords: Coords | null, opts
     if (containsAny(text, allClear)) continue;
     if (now - ts(latest) > ttlMs) continue;
     if (requireThreat && !containsAny(text, threat)) continue;
-    hits.push({ zone, message: latest });
+    hits.push(aheadZones.includes(zone) ? { zone, message: latest, ahead: true } : { zone, message: latest });
   }
 
   let level: AlertLevel = 'safe';
-  if (hits.some((h) => h.zone.kind === 'district')) level = 'danger';
+  if (hits.some(isDangerHit)) level = 'danger';
   else if (hits.length > 0) level = 'caution';
 
   // Districts first, then newest.
   hits.sort((a, b) =>
-    a.zone.kind !== b.zone.kind ? (a.zone.kind === 'district' ? -1 : 1) : ts(b.message) - ts(a.message),
+    isDangerHit(a) !== isDangerHit(b) ? (isDangerHit(a) ? -1 : 1) : ts(b.message) - ts(a.message),
   );
   return { level, hits, userZones };
 }

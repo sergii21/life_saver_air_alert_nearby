@@ -18,10 +18,14 @@ export interface CheckResult {
  * One full check: read channels → match against location → (optionally) notify.
  * Shared by the foreground poller and the background task.
  */
-export async function runCheck(coords: Coords | null, opts: { notify: boolean; notifySound?: boolean }): Promise<CheckResult> {
+export async function runCheck(coords: Coords | null, opts: { notify: boolean; notifySound?: boolean; aheadZoneIds?: string[] }): Promise<CheckResult> {
   const { messages, errors } = await fetchAll(configuredChannels());
   const settings = await loadSettings();
-  const state = evaluate(messages, coords, { zoneBufferKm: settings.nearbyKm, pinnedZoneIds: settings.pinned });
+  const state = evaluate(messages, coords, {
+    zoneBufferKm: settings.nearbyKm,
+    pinnedZoneIds: settings.pinned,
+    aheadZoneIds: opts.aheadZoneIds,
+  });
 
   const notified = await loadNotified();
   const newHits = state.hits.filter((h) => !notified.has(hitKey(h)));

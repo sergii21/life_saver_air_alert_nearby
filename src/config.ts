@@ -4,6 +4,8 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import type { Zone } from './types';
+import type { Place } from './lib/threat';
+import { OBLAST_PLACES } from './zones/oblast';
 import { VINNYTSIA_ZONES } from './zones/vinnytsia';
 
 export const CONFIG = {
@@ -64,7 +66,7 @@ export const CONFIG = {
    * Keyword syntax (used everywhere): lowercase; ending with "*" = word prefix (handles
    * Ukrainian case endings), otherwise whole word / phrase.
    */
-  ALL_CLEAR_KEYWORDS: ['відбій*', 'отбой*', 'загроза минула', 'загрозу знято', 'чисто', 'all clear'],
+  ALL_CLEAR_KEYWORDS: ['відбій*', 'отбой*', 'загроза минула', 'загрозу знято', 'без загроз', 'чисто', 'all clear'],
 
   /**
    * Words naming the whole region (oblast). An all-clear post that names the region — or names
@@ -80,6 +82,18 @@ export const CONFIG = {
 
   /** Zones (districts / areas) the app knows. Swap or extend for other cities. */
   ZONES: VINNYTSIA_ZONES as Zone[],
+
+  /**
+   * Every place the channel may name as where a target is heading: the zones above plus
+   * the other towns of the oblast. Used for the "Targets" list and the map.
+   */
+  THREAT_PLACES: [...VINNYTSIA_ZONES, ...OBLAST_PLACES] as Place[],
+
+  /**
+   * When the user is moving, districts on their course within this many minutes are
+   * checked too ("danger ahead").
+   */
+  LOOKAHEAD_MINUTES: 5,
 
   /** Emergency phone number shown on the alert screen. */
   EMERGENCY_PHONE: '112',

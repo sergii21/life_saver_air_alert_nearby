@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { CONFIG } from '../config';
 import { t, zoneName } from '../i18n';
+import { kmh, motionMode, type Motion } from '../lib/motion';
 import { colors } from '../theme';
 import type { AlertLevel, Coords, Zone, ZoneHit } from '../types';
 
@@ -15,11 +16,17 @@ interface Props {
   hits: ZoneHit[];
   coords: Coords | null;
   userZones: Zone[];
+  motion: Motion;
+  /** Districts on the user's course in the next minutes. */
+  aheadZones: Zone[];
   lastCheck: number | null;
 }
 
-export function StatusCard({ level, hits, coords, userZones, lastCheck }: Props) {
+const MODE_KEY = { still: 'modeStill', walk: 'modeWalk', bike: 'modeBike', car: 'modeCar' } as const;
+
+export function StatusCard({ level, hits, coords, userZones, motion, aheadZones, lastCheck }: Props) {
   const look = LOOK[level];
+  const mode = motionMode(motion.speed);
   return (
     <View style={[styles.card, { backgroundColor: look.bg, borderColor: look.fg }]}>
       <Text style={styles.icon}>{look.icon}</Text>
@@ -39,6 +46,15 @@ export function StatusCard({ level, hits, coords, userZones, lastCheck }: Props)
           <Text style={styles.coords}>
             {coords.latitude.toFixed(4)}, {coords.longitude.toFixed(4)}
           </Text>
+          <Text style={styles.label}>
+            {t('motionLabel')}: {t(MODE_KEY[mode])}
+            {mode !== 'still' ? ` · ${t('kmh', { n: kmh(motion.speed) })}` : ''}
+          </Text>
+          {aheadZones.length > 0 && (
+            <Text style={styles.ahead}>
+              {t('aheadLabel', { min: CONFIG.LOOKAHEAD_MINUTES })}: {aheadZones.map(zoneName).join(' · ')}
+            </Text>
+          )}
         </>
       ) : (
         <Text style={styles.value}>{t('locating')}</Text>
@@ -59,5 +75,6 @@ const styles = StyleSheet.create({
   divider: { height: 1, backgroundColor: colors.border, marginVertical: 14 },
   label: { fontSize: 13, color: colors.muted, marginTop: 4 },
   value: { fontSize: 16, color: colors.text, fontWeight: '600', marginTop: 2 },
+  ahead: { fontSize: 14, color: colors.text, fontWeight: '600', marginTop: 2, marginBottom: 6 },
   coords: { fontSize: 12, color: colors.muted, marginTop: 2, marginBottom: 8 },
 });

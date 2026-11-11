@@ -57,6 +57,15 @@ export function stopNativeSiren(): void {
 
 export const isSirenPlaying = () => player !== null;
 
+/** Turn the siren down (0..1) while the voice speaks, then back up. */
+export function setSirenVolume(volume: number): void {
+  try {
+    if (player) player.volume = volume;
+  } catch {
+    // player already released
+  }
+}
+
 /** Start the inaudible loop that keeps the app running in the background. Idempotent. */
 export async function startKeepAlive(): Promise<void> {
   if (keepAlive) return;

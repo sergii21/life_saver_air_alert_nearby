@@ -36,6 +36,8 @@ export type AlertLevel = 'safe' | 'caution' | 'danger';
 export interface ZoneHit {
   zone: Zone;
   message: ChannelMessage;
+  /** The user is not in this zone yet but is moving towards it. */
+  ahead?: boolean;
 }
 
 export interface AlertState {

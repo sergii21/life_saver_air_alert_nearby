@@ -2,7 +2,10 @@ import * as Notifications from 'expo-notifications';
 import { AppState, Platform } from 'react-native';
 import { t, zoneName } from '../i18n';
 import type { ZoneHit } from '../types';
+import { isDangerHit } from './evaluate';
 import { messageUrl } from './telegram';
+import { trackFor } from './threat';
+import { threatLine } from './threatText';
 
 export const ALERT_CHANNEL_ID = 'danger-alerts';
 const ALERT_SOUND = 'siren_alert.wav';
@@ -37,11 +40,15 @@ export async function setupNotifications(): Promise<boolean> {
 }
 
 export function hitTexts(hit: ZoneHit, isTest = false): { title: string; body: string } {
-  const danger = hit.zone.kind === 'district';
+  const danger = isDangerHit(hit);
   const zone = zoneName(hit.zone);
+  const track = trackFor(hit.message, hit.zone.id);
+  const what = track ? threatLine(track) + '\n' : '';
+  const title = hit.ahead ? 'notifTitleAhead' : danger ? 'notifTitleDanger' : 'notifTitleCaution';
+  const body = hit.ahead ? 'notifBodyAhead' : danger ? 'notifBodyDanger' : 'notifBodyCaution';
   return {
-    title: (isTest ? 'TEST · ' : '') + t(danger ? 'notifTitleDanger' : 'notifTitleCaution', { zone }),
-    body: t(danger ? 'notifBodyDanger' : 'notifBodyCaution') + '\n\n' + hit.message.text.slice(0, 200),
+    title: (isTest ? 'TEST · ' : '') + t(title, { zone }),
+    body: what + t(body) + '\n\n' + hit.message.text.slice(0, 200),
   };
 }
 
