@@ -1,4 +1,4 @@
-import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CONFIG } from '../config';
 import { t, timeAgo, zoneName } from '../i18n';
@@ -29,6 +29,9 @@ interface Props {
 const CITY = CONFIG.ZONES.find((z) => z.kind === 'area')?.center;
 
 export function AlertOverlay({ hit, coords, isTest, mode, onSpeak, onClose, onEnableSound }: Props) {
+  // Pin the screen to the window height: on the web it would otherwise grow with its content,
+  // pushing the close button off-screen and leaving nothing to scroll inside.
+  const { height } = useWindowDimensions();
   if (!hit) return null;
   const danger = isDangerHit(hit);
   const track = isTest ? null : trackFor(hit.message, hit.zone.id);
@@ -39,8 +42,8 @@ export function AlertOverlay({ hit, coords, isTest, mode, onSpeak, onClose, onEn
 
   return (
     <Modal visible animationType="fade" presentationStyle="fullScreen" onRequestClose={onClose}>
-      <SafeAreaView style={[styles.wrap, { backgroundColor: bg }]}>
-        <ScrollView contentContainerStyle={styles.content}>
+      <SafeAreaView style={[styles.wrap, { backgroundColor: bg, height }]}>
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator>
           {isTest && <Text style={styles.test}>TEST</Text>}
           {onEnableSound && (
             <Button title={t('webEnableSound')} color={colors.white} textColor={bg} onPress={onEnableSound} />
@@ -100,8 +103,11 @@ export function AlertOverlay({ hit, coords, isTest, mode, onSpeak, onClose, onEn
             <Button title={t('openMessage')} color={colors.white} outline onPress={() => open(messageUrl(hit.message))} />
           )}
 
-          <Button title={t('imSafe')} color="rgba(0,0,0,0.35)" onPress={onClose} style={{ marginTop: 24 }} />
         </ScrollView>
+        {/* Always visible (outside the scroll area): stops the siren and closes the alert. */}
+        <View style={styles.footer}>
+          <Button title={t('imSafe')} color="rgba(0,0,0,0.45)" onPress={onClose} style={{ marginTop: 0 }} />
+        </View>
       </SafeAreaView>
     </Modal>
   );
@@ -109,6 +115,8 @@ export function AlertOverlay({ hit, coords, isTest, mode, onSpeak, onClose, onEn
 
 const styles = StyleSheet.create({
   wrap: { flex: 1 },
+  scroll: { flex: 1, minHeight: 0 },
+  footer: { paddingHorizontal: 22, paddingVertical: 12, backgroundColor: 'rgba(0,0,0,0.25)' },
   content: { padding: 22, paddingBottom: 40 },
   test: {
     alignSelf: 'center',
