@@ -6,6 +6,7 @@ import { zonesForLocation } from '../lib/evaluate';
 import { distanceKm } from '../lib/geo';
 import type { Settings } from '../lib/storage';
 import type { ThreatTrack } from '../lib/threat';
+import { KIND_COLOR, speedLabel } from '../lib/threatText';
 import { listVoices, speak, type VoiceOption } from '../lib/voice';
 import { colors } from '../theme';
 import type { Coords, Zone } from '../types';
@@ -106,6 +107,18 @@ function SettingsContent({ visible, onClose, coords, userZones, threats, setting
 
         <ScrollView contentContainerStyle={styles.content}>
           {HAS_MAP && threats.length > 0 && <Text style={[styles.hint, styles.hintGap]}>{t('mapThreatHint')}</Text>}
+          {HAS_MAP && (
+            <View style={styles.legend}>
+              <Text style={styles.legendTitle}>{t('legendTitle')}</Text>
+              <Text style={[styles.legendRow, { color: KIND_COLOR.jet }]}>
+                ⚡ {t('legendJet')} · {speedLabel('jet')}
+              </Text>
+              <Text style={[styles.legendRow, { color: KIND_COLOR.shahed }]}>
+                🛵 {t('legendShahed')} · {speedLabel('shahed')}
+              </Text>
+              <Text style={styles.hint}>{t('legendNote')}</Text>
+            </View>
+          )}
           {HAS_MAP && <Text style={styles.hint}>{t('mapHint')}</Text>}
 
           <Text style={styles.section}>{t('nearbyTitle')}</Text>
@@ -212,6 +225,9 @@ const styles = StyleSheet.create({
   mapBox: { height: '45%', borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.border },
   content: { padding: 16, paddingBottom: 48 },
   hint: { fontSize: 13, color: colors.muted, lineHeight: 18 },
+  legend: { backgroundColor: colors.card, borderRadius: 10, borderWidth: 1, borderColor: colors.border, padding: 10, marginBottom: 10 },
+  legendTitle: { fontSize: 13, fontWeight: '800', color: colors.text, marginBottom: 4 },
+  legendRow: { fontSize: 13, fontWeight: '700', lineHeight: 19 },
   hintGap: { marginBottom: 6, color: colors.danger },
   hintTop: { marginTop: 12 },
   section: { fontSize: 16, fontWeight: '800', color: colors.text, marginTop: 18, marginBottom: 4 },

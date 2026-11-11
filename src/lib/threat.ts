@@ -49,12 +49,20 @@ const L = "a-zа-яіїєґ'";
 export const COMPASS_DEG: Record<Compass, number> = { N: 0, NE: 45, E: 90, SE: 135, S: 180, SW: 225, W: 270, NW: 315 };
 const COMPASS_ORDER: Compass[] = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 
-/** Typical speeds, km/h — only for a rough "minutes of flight" estimate. */
-export const SPEED_KMH: Record<ThreatKind, number | null> = {
-  jet: 500,
-  shahed: 170,
-  missile: 800,
-  kab: 900,
+/**
+ * How fast each kind flies, km/h, as [slowest, fastest] cruise speed. Published figures
+ * disagree, so a range is kept and shown rather than one number:
+ *  - Shahed-136 / Geran-2 (propeller): about 185 km/h cruise, up to ~250 cited.
+ *  - Jet Shahed (Geran-3): 300–370 km/h is the most common estimate, one radar reading
+ *    showed 515 km/h, and up to 600 km/h is claimed.
+ *  - Cruise missile: 700–900 km/h (subsonic).
+ * Ballistic missiles and glide bombs arrive too fast for a flight-time estimate to help.
+ */
+export const SPEED_RANGE_KMH: Record<ThreatKind, [number, number] | null> = {
+  jet: [370, 600],
+  shahed: [180, 250],
+  missile: [700, 900],
+  kab: null,
   ballistic: null,
   unknown: null,
 };
@@ -348,8 +356,11 @@ export interface TrackRelation {
   km: number;
   /** Side of the user the place is on. */
   side: Compass;
-  /** Rough flight time from that place to the user, minutes. */
-  minutes: number | null;
+  /**
+   * Rough flight time from that place to the user, minutes: `min` at the fastest speed
+   * for its kind (the one to plan by), `max` at the slowest.
+   */
+  minutes: { min: number; max: number } | null;
   /** The place is next to the user, or the course from it points at the user. */
   towardsUser: boolean;
 }
@@ -358,7 +369,8 @@ export function relationToUser(track: ThreatTrack, coords: Coords | null): Track
   if (!coords || track.targets.length === 0) return null;
   const place = track.targets.reduce((a, b) => (distanceKm(coords, a.center) <= distanceKm(coords, b.center) ? a : b));
   const km = distanceKm(coords, place.center);
-  const speed = SPEED_KMH[track.kind];
+  const speed = SPEED_RANGE_KMH[track.kind];
+  const minutesAt = (kmh: number) => Math.max(1, Math.round((km / kmh) * 60));
   const course = trackCourse(track);
   let towardsUser = km <= 5;
   if (!towardsUser && course !== null && km <= 80) {
@@ -369,7 +381,7 @@ export function relationToUser(track: ThreatTrack, coords: Coords | null): Track
     place,
     km,
     side: compassOf(bearingDeg(coords, place.center)),
-    minutes: speed ? Math.max(1, Math.round((km / speed) * 60)) : null,
+    minutes: speed ? { min: minutesAt(speed[1]), max: minutesAt(speed[0]) } : null,
     towardsUser,
   };
 }

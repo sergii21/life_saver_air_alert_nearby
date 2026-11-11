@@ -156,7 +156,14 @@ describe('active targets', () => {
     expect(rel?.km).toBeGreaterThan(35);
     expect(rel?.km).toBeLessThan(50);
     expect(rel?.towardsUser).toBe(true);
-    expect(rel?.minutes).toBeGreaterThan(3);
+    // 40-odd km at 370–600 km/h: the fastest case is the one to plan by.
+    expect(rel?.minutes?.min).toBeLessThan(rel?.minutes?.max ?? 0);
+    expect(rel?.minutes?.min).toBeGreaterThanOrEqual(4);
+    expect(rel?.minutes?.max).toBeLessThanOrEqual(8);
+    // A propeller Shahed over the same distance takes clearly longer.
+    const [slow] = one('2 Шахеди на Липовець зі сходу');
+    expect(relationToUser(slow, user)?.minutes?.min).toBeGreaterThan(rel?.minutes?.max ?? 99);
+    expect(relationToUser(one('Балістика на Липовець')[0], user)?.minutes).toBeNull();
     const [away] = one('2 Реактиви на Липовець із заходу'); // flying east, away from the city
     expect(relationToUser(away, user)?.towardsUser).toBe(false);
   });

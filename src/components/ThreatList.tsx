@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { t, timeAgo } from '../i18n';
 import { relationToUser, type ThreatTrack } from '../lib/threat';
-import { KIND_ICON, relationLine, threatLabel, threatWhere } from '../lib/threatText';
+import { KIND_COLOR, KIND_ICON, kindBadge, relationLine, speedLabel, threatWhere, countLabel } from '../lib/threatText';
 import { colors } from '../theme';
 import type { Coords } from '../types';
 import { Button } from './Button';
@@ -28,8 +28,15 @@ export const ThreatList = memo(function ThreatList({ threats, coords, onOpenMap 
           <View key={`${track.key}-${track.message.id}`} style={[styles.row, towards && styles.rowHot]}>
             <Text style={styles.icon}>{KIND_ICON[track.kind]}</Text>
             <View style={styles.text}>
+              <View style={styles.badges}>
+                <Text style={[styles.badge, { backgroundColor: KIND_COLOR[track.kind] }]}>{kindBadge(track.kind)}</Text>
+                {!!speedLabel(track.kind) && (
+                  <Text style={[styles.speed, { color: KIND_COLOR[track.kind] }]}>{speedLabel(track.kind)}</Text>
+                )}
+              </View>
               <Text style={styles.label}>
-                {threatLabel(track)} <Text style={styles.arrow}>→ {threatWhere(track)}</Text>
+                {countLabel(track) ? `${countLabel(track)} × ` : ''}
+                <Text style={styles.arrow}>→ {threatWhere(track)}</Text>
               </Text>
               <Text style={styles.meta}>{meta}</Text>
               {towards && <Text style={styles.hot}>{t('targetsTowards')}</Text>}
@@ -56,6 +63,17 @@ const styles = StyleSheet.create({
   rowHot: { backgroundColor: colors.dangerBg, borderRadius: 8, paddingHorizontal: 6 },
   icon: { fontSize: 22, width: 32 },
   text: { flex: 1 },
+  badges: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 3 },
+  badge: {
+    color: colors.white,
+    fontSize: 11,
+    fontWeight: '900',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 5,
+    overflow: 'hidden',
+  },
+  speed: { fontSize: 12, fontWeight: '800' },
   label: { fontSize: 15, fontWeight: '800', color: colors.text, lineHeight: 21 },
   arrow: { color: colors.danger },
   meta: { fontSize: 12, color: colors.muted, marginTop: 2 },

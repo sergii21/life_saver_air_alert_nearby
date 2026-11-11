@@ -4,8 +4,8 @@ import MapView, { Circle, Marker, Polyline, type Region } from 'react-native-map
 import { CONFIG } from '../config';
 import { timeAgo, zoneName } from '../i18n';
 import { destinationPoint } from '../lib/geo';
-import { trackCourse, trackOrigin, type ThreatTrack } from '../lib/threat';
-import { countLabel, KIND_ICON } from '../lib/threatText';
+import { SPEED_RANGE_KMH, trackCourse, trackOrigin, type ThreatTrack } from '../lib/threat';
+import { countLabel, KIND_COLOR, KIND_ICON, kindBadge } from '../lib/threatText';
 import { colors } from '../theme';
 import type { Coords, Zone } from '../types';
 import type { ZoneMapProps } from './ZoneMap';
@@ -19,6 +19,16 @@ const LABEL_MAX_COUNT = 40;
 /** The flying marker moves this often, and takes this long from start to destination. */
 const FLY_TICK_MS = 250;
 const FLY_LOOP_MS = 6000;
+
+/**
+ * A faster kind flies its line in less time, so a jet Shahed visibly outruns a propeller
+ * one: the slow Shahed takes the full loop, others proportionally less (never under 1.5 s).
+ */
+function loopMs(track: ThreatTrack): number {
+  const range = SPEED_RANGE_KMH[track.kind];
+  const slowest = (SPEED_RANGE_KMH.shahed as [number, number])[0];
+  return range ? Math.max(1500, Math.round((FLY_LOOP_MS * slowest) / range[0])) : FLY_LOOP_MS;
+}
 
 /** A region that shows the user and every reported target (or just the user's surroundings). */
 function regionFor(center: Coords, points: Coords[]): Region {
@@ -104,15 +114,16 @@ const TargetLayer = memo(function TargetLayer({ flights }: { flights: Flight[] }
       {flights.map(({ id, track, origin, head, course }) => {
         const n = countLabel(track);
         const ago = timeAgo(track.message.date);
+        const color = KIND_COLOR[track.kind];
         return [
           // Where it came from → where the post says it is heading.
-          origin && <Polyline key={`l-${id}`} coordinates={[origin, head]} strokeColor={colors.danger} strokeWidth={3} />,
+          origin && <Polyline key={`l-${id}`} coordinates={[origin, head]} strokeColor={color} strokeWidth={track.kind === 'jet' ? 5 : 3} />,
           // Dashed: where it goes next if it keeps the same course.
           course !== null && (
             <Polyline
               key={`n-${id}`}
               coordinates={[head, destinationPoint(head, course, 20)]}
-              strokeColor={colors.danger}
+              strokeColor={color}
               strokeWidth={2}
               lineDashPattern={[8, 8]}
             />
@@ -120,10 +131,13 @@ const TargetLayer = memo(function TargetLayer({ flights }: { flights: Flight[] }
           ...track.targets.map((p) => (
             // The time is part of the key: the label is a snapshot, so a new time needs a new marker.
             <Marker key={`t-${id}-${p.id}-${ago}`} coordinate={p.center} anchor={{ x: 0.5, y: 1.15 }} tracksViewChanges={false}>
-              <View style={styles.target}>
+              <View style={[styles.target, { backgroundColor: color }]}>
+                <Text style={styles.targetKind}>
+                  {KIND_ICON[track.kind]} {kindBadge(track.kind)}
+                </Text>
                 <Text style={styles.targetText}>
-                  {KIND_ICON[track.kind]}
-                  {n ? ` ${n}` : ''} · {zoneName(p)}
+                  {n ? `${n} × ` : ''}
+                  {zoneName(p)}
                 </Text>
                 <Text style={styles.targetAgo}>{ago}</Text>
               </View>
@@ -142,12 +156,12 @@ const TargetLayer = memo(function TargetLayer({ flights }: { flights: Flight[] }
  */
 function Flyers({ flights }: { flights: Flight[] }) {
   const moving = flights.filter((f) => f.origin && f.course !== null);
-  const [phase, setPhase] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
   const any = moving.length > 0;
   useEffect(() => {
     if (!any) return;
     const started = Date.now();
-    const id = setInterval(() => setPhase(((Date.now() - started) % FLY_LOOP_MS) / FLY_LOOP_MS), FLY_TICK_MS);
+    const id = setInterval(() => setElapsed(Date.now() - started), FLY_TICK_MS);
     return () => clearInterval(id);
   }, [any]);
 
@@ -155,6 +169,9 @@ function Flyers({ flights }: { flights: Flight[] }) {
     <>
       {moving.map((f) => {
         const from = f.origin as Coords;
+        const loop = loopMs(f.track);
+        const phase = (elapsed % loop) / loop;
+        const jet = f.track.kind === 'jet';
         return (
           <Marker
             key={`f-${f.id}`}
@@ -166,9 +183,11 @@ function Flyers({ flights }: { flights: Flight[] }) {
             tracksViewChanges={false}
             zIndex={5}
           >
-            <View style={styles.flyer}>
+            <View style={[styles.flyer, jet && styles.flyerJet, { backgroundColor: KIND_COLOR[f.track.kind] }]}>
               {/* "➤" points east, so turn it by (course − 90°). */}
-              <Text style={[styles.flyerArrow, { transform: [{ rotate: `${(f.course as number) - 90}deg` }] }]}>➤</Text>
+              <Text style={[styles.flyerArrow, { transform: [{ rotate: `${(f.course as number) - 90}deg` }] }]}>
+                {jet ? '➤➤' : '➤'}
+              </Text>
             </View>
           </Marker>
         );
@@ -231,16 +250,17 @@ const styles = StyleSheet.create({
   labelText: { fontSize: 11, fontWeight: '700', color: colors.text },
   labelTextActive: { color: colors.white },
   target: {
-    backgroundColor: '#1B1F24',
-    borderColor: colors.danger,
+    backgroundColor: colors.danger,
+    borderColor: colors.white,
     borderWidth: 2,
     borderRadius: 8,
     paddingHorizontal: 7,
     paddingVertical: 3,
     alignItems: 'center',
   },
+  targetKind: { fontSize: 9, fontWeight: '900', color: colors.white, letterSpacing: 0.4 },
   targetText: { fontSize: 13, fontWeight: '900', color: colors.white },
-  targetAgo: { fontSize: 10, fontWeight: '600', color: '#FFD7D5' },
+  targetAgo: { fontSize: 10, fontWeight: '600', color: colors.white, opacity: 0.85 },
   flyer: {
     width: 30,
     height: 30,
@@ -251,5 +271,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  flyerJet: { width: 42, borderRadius: 15 },
   flyerArrow: { fontSize: 15, color: colors.white, fontWeight: '900' },
 });
