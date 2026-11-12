@@ -55,6 +55,10 @@ const uk = {
   testAlert: 'Перевірити сигнал тривоги (тест)',
   testAlertBody: 'ТЕСТ: загроза в районі «{zone}». Це перевірка, а не справжня тривога.',
   testNeedsZone: 'Для тесту потрібне місцезнаходження в межах відомої зони.',
+  testWarning: 'Перевірити коротке попередження (тест)',
+  testWarningBody: 'ТЕСТ: у каналі згадано «{zone}». Це перевірка, а не справжня загроза.',
+  spokenShort: 'Увага, {zone}.',
+  spokenShortTest: 'Тест.',
   privacy: 'Політика конфіденційності',
   disclaimer:
     'Застосунок не є офіційною системою оповіщення і не замінює сирен та офіційних застосунків. Завжди дійте за сигналом повітряної тривоги.',
@@ -208,6 +212,10 @@ const en: Strings = {
   testAlert: 'Test the alarm',
   testAlertBody: 'TEST: threat in "{zone}". This is a test, not a real alarm.',
   testNeedsZone: 'The test needs your location inside a known zone.',
+  testWarning: 'Test the short warning',
+  testWarningBody: 'TEST: the channel mentions "{zone}". This is a test, not a real threat.',
+  spokenShort: 'Attention, {zone}.',
+  spokenShortTest: 'Test.',
   privacy: 'Privacy policy',
   disclaimer:
     'This app is not an official warning system and does not replace sirens or official apps. Always act on the air-raid alarm.',

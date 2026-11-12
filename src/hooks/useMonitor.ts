@@ -5,14 +5,14 @@ import { AppState, Platform, Vibration } from 'react-native';
 import { CONFIG, configuredChannels } from '../config';
 import { lang, setLang, t } from '../i18n';
 import { registerBackgroundCheck } from '../lib/background';
-import { hitKey, userZonesFor } from '../lib/evaluate';
+import { hitKey, isSoftHit, userZonesFor } from '../lib/evaluate';
 import { runCheck, type CheckResult } from '../lib/monitor';
 import { aheadZones as zonesAhead, cleanMotion, motionMode, NO_MOTION, type Motion } from '../lib/motion';
-import { setSirenVolume, startKeepAlive, startNativeSiren, stopKeepAlive, stopNativeSiren } from '../lib/nativeSiren';
+import { isSirenPlaying, quietMode, startKeepAlive, startNativeSiren, stopKeepAlive, stopNativeSiren } from '../lib/nativeSiren';
 import { hitTexts, notifyHit, setupNotifications } from '../lib/notifications';
 import { messageUrl } from '../lib/telegram';
 import { activeThreats } from '../lib/threat';
-import { spokenAlert } from '../lib/threatText';
+import { spokenAlert, spokenWarning } from '../lib/threatText';
 import { speak, stopSpeaking } from '../lib/voice';
 import {
   enableWebAlerts,
@@ -57,7 +57,11 @@ const IS_WEB = Platform.OS === 'web';
 /** iPhone: the app keeps running (and checking) in the background — see CONFIG.BACKGROUND_KEEP_ALIVE. */
 const KEEP_ALIVE = Platform.OS === 'ios' && CONFIG.BACKGROUND_KEEP_ALIVE;
 
-/** Siren first; a few seconds later it goes quiet and the voice says what to do. */
+/** A short siren to catch attention; then it stops and the voice says what to do. */
+/** siren.wav is one 2.5 s rise-and-fall: exactly one full wail. */
+const SIREN_SECONDS = 2.5;
+/** With voice advice switched off the siren is the only sound, so it plays longer. */
+const SIREN_ONLY_SECONDS = 12;
 let announceTimer: ReturnType<typeof setTimeout> | null = null;
 
 function cancelAnnounce() {
@@ -66,21 +70,17 @@ function cancelAnnounce() {
   stopSpeaking();
 }
 
-function announce(hit: ZoneHit, isTest: boolean, settings: Settings, motion: Motion, delayMs = 2500) {
+function announce(hit: ZoneHit, isTest: boolean, settings: Settings, motion: Motion, delayMs = SIREN_SECONDS * 1000) {
   cancelAnnounce();
   if (!settings.voice) return;
   announceTimer = setTimeout(() => {
     announceTimer = null;
     try {
-      if (!IS_WEB) setSirenVolume(0.12);
-      speak(spokenAlert(hit, motionMode(motion.speed), isTest), {
-        lang,
-        voiceId: settings.voiceId,
-        onEnd: () => setSirenVolume(1),
-      });
+      if (IS_WEB) stopWebSiren();
+      else stopNativeSiren();
+      speak(spokenAlert(hit, motionMode(motion.speed), isTest), { lang, voiceId: settings.voiceId });
     } catch {
-      // The voice is an extra: the siren must keep sounding at full volume.
-      setSirenVolume(1);
+      // The voice failed: nothing more to do, the siren has already sounded.
     }
   }, delayMs);
 }
@@ -104,16 +104,41 @@ function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
   });
 }
 
+/**
+ * The whole city is named, not a district: no siren. A short buzz and about a second of
+ * speech ("Увага, Вінниця."). Spoken even when voice advice is off — it is the warning's sound.
+ */
+function softWarn(hit: ZoneHit, isTest: boolean, settings: Settings) {
+  // Never talk over or cut short a siren that is already sounding for a district.
+  if (!IS_WEB && isSirenPlaying()) return;
+  cancelAnnounce();
+  if (IS_WEB) {
+    const { title, body } = hitTexts(hit, isTest);
+    webNotify(title, body, isTest ? undefined : messageUrl(hit.message));
+  } else {
+    Vibration.vibrate(400);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+  }
+  const say = () => speak(spokenWarning(hit, isTest), { lang, voiceId: settings.voiceId });
+  // Make sure the voice is heard with the phone's silent switch on.
+  if (IS_WEB) say();
+  else quietMode().catch(() => {}).then(say);
+}
+
 function alarm(hit: ZoneHit, isTest: boolean, settings: Settings, motion: Motion) {
+  if (isSoftHit(hit)) {
+    softWarn(hit, isTest, settings);
+    return;
+  }
   announce(hit, isTest, settings, motion);
   if (IS_WEB) {
     // Browser preview: siren sound (repeats until "I'm safe") + desktop notification.
-    startWebSiren();
+    startWebSiren(settings.voice ? SIREN_SECONDS + 1 : SIREN_ONLY_SECONDS);
     const { title, body } = hitTexts(hit, isTest);
     webNotify(title, body, isTest ? undefined : messageUrl(hit.message));
     return;
   }
-  startNativeSiren();
+  startNativeSiren(settings.voice ? SIREN_SECONDS + 1 : SIREN_ONLY_SECONDS);
   Vibration.vibrate(ALARM_PATTERN);
   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
 }
@@ -316,10 +341,12 @@ export function useMonitor() {
     setAcked((prev) => new Set([...prev, ...keys]));
   }, [result, testHit]);
 
-  const runTest = useCallback((): string | null => {
+  const runTest = useCallback((kind: 'alarm' | 'warning' = 'alarm'): string | null => {
+    const soft = kind === 'warning';
     // Outside known zones (e.g. App Store reviewers abroad) the test uses the first district as a demo.
-    const zone =
-      userZones.find((z) => z.kind === 'district') ?? userZones[0] ?? CONFIG.ZONES.find((z) => z.kind === 'district');
+    const zone = soft
+      ? CONFIG.ZONES.find((z) => z.kind === 'area')
+      : (userZones.find((z) => z.kind === 'district') ?? userZones[0] ?? CONFIG.ZONES.find((z) => z.kind === 'district'));
     if (!zone) return t('testNeedsZone');
     const hit: ZoneHit = {
       zone,
@@ -327,13 +354,17 @@ export function useMonitor() {
         channel: configuredChannels()[0] ?? 'test',
         id: 0,
         date: new Date().toISOString(),
-        text: t('testAlertBody', { zone: zone.name }),
+        text: t(soft ? 'testWarningBody' : 'testAlertBody', { zone: zone.name }),
       },
     };
     setTestHit(hit);
+    if (soft) {
+      softWarn(hit, true, settingsRef.current);
+      return null;
+    }
     if (IS_WEB) {
       // This click unlocks sound: start the siren now, then ask for notification permission.
-      startWebSiren();
+      startWebSiren(settingsRef.current.voice ? SIREN_SECONDS + 1 : SIREN_ONLY_SECONDS);
       enableWebAlerts({ beep: false }).then((r) => {
         setWebSound(r.sound);
         setNotifGranted(r.notifications);

@@ -61,6 +61,12 @@ export const hitKey = (h: ZoneHit) => `${h.ahead ? 'ahead:' : ''}${h.zone.id}|${
 export const isDangerHit = (h: ZoneHit) => !h.ahead && h.zone.kind === 'district';
 
 /**
+ * A post that names only the whole city ("Вінниця"), not a district: a short spoken
+ * warning instead of the siren.
+ */
+export const isSoftHit = (h: ZoneHit) => h.zone.kind === 'area';
+
+/**
  * Core decision: given the latest channel messages and the user's location,
  * is the user's district/area currently named in an active threat message?
  *

@@ -104,6 +104,15 @@ function Home() {
               if (err) Alert.alert(t('appName'), err);
             }}
           />
+          <Button
+            title={t('testWarning')}
+            outline
+            color={colors.muted}
+            onPress={() => {
+              const err = m.runTest('warning');
+              if (err) Alert.alert(t('appName'), err);
+            }}
+          />
           <Text style={styles.note}>{t('backgroundNote')}</Text>
           <Text style={styles.note}>{t('disclaimer')}</Text>
           {!!process.env.EXPO_PUBLIC_BUILD && <Text style={styles.note}>build {process.env.EXPO_PUBLIC_BUILD}</Text>}

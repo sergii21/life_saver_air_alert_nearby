@@ -198,3 +198,16 @@ describe('movement and danger ahead', () => {
     expect(hitKey(hit!)).toMatch(/^ahead:/);
   });
 });
+
+describe('whole-city mention', () => {
+  const { isSoftHit, isDangerHit } = require('../src/lib/evaluate');
+  const { CONFIG } = require('../src/config');
+  const msg = { channel: 'c', id: 1, date: new Date().toISOString(), text: 'x' };
+  it('is a soft warning, a district is not', () => {
+    const city = CONFIG.ZONES.find((z: any) => z.kind === 'area');
+    const district = CONFIG.ZONES.find((z: any) => z.kind === 'district');
+    expect(isSoftHit({ zone: city, message: msg })).toBe(true);
+    expect(isSoftHit({ zone: district, message: msg })).toBe(false);
+    expect(isDangerHit({ zone: district, message: msg })).toBe(true);
+  });
+});

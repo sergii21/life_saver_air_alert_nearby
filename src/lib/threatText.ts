@@ -122,3 +122,8 @@ export function spokenAlert(hit: ZoneHit, mode: MotionMode, isTest = false): str
   parts.push(adviceFor(hit, mode)[0]);
   return parts.join(' ');
 }
+
+/** The short warning for a whole-city mention: "Увага, Вінниця." — about a second of speech. */
+export function spokenWarning(hit: ZoneHit, isTest = false): string {
+  return t('spokenShort', { zone: zoneName(hit.zone) }) + (isTest ? ` ${t('spokenShortTest')}` : '');
+}

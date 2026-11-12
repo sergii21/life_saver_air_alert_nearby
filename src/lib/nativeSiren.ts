@@ -27,7 +27,7 @@ const release = (p: AudioPlayer | null) => {
 };
 
 /** Quiet background session: mixes with the user's music instead of stopping it. */
-const quietMode = () =>
+export const quietMode = () =>
   setAudioModeAsync({ playsInSilentMode: true, shouldPlayInBackground: true, interruptionMode: 'mixWithOthers' });
 
 export async function startNativeSiren(maxSeconds = 60): Promise<void> {
